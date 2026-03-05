@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord-Like Chat App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #5865f2;
+            --secondary-color: #404249;
+            --bg-color: #36393f;
+            --chat-bg: #2c2f33;
+            --sidebar-bg: #2f3136;
+            --text-primary: #ffffff;
+            --text-secondary: #b9bbbe;
+            --border-color: #202225;
+            --shadow: 0 2px 10px rgba(0,0,0,0.3);
+            --success: #43b581;
+            --danger: #f04747;
+        }
+
+        body {
+            font-family: 'Whitney', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        /* ==================== LOGIN PAGE ==================== */
+        .auth-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--primary-color), #1a1a2e);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .auth-box {
+            background: var(--bg-color);
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 400px;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .auth-box h2 {
+            margin-bottom: 30px;
+            color: var(--primary-color);
+            font-size: 28px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            background: var(--chat-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.1);
+        }
+
+        .auth-button {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .auth-button:hover {
+            background: #4752c4;
+        }
+
+        .auth-button:active {
+            transform: scale(0.98);
+        }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .auth-toggle button {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        /* ==================== MAIN LAYOUT ==================== */
+        .main-container {
+            display: grid;
+            grid-template-columns: 72px 240px 1fr 240px;
+            height: 100vh;
+            gap: 0;
+        }
+
+        .main-container.hidden {
+            display: none;
+        }
+
+        /* ==================== GUILD SIDEBAR ==================== */
+        .guild-sidebar {
+            background: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 0;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .guild-item {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), #4752c4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+            font-size: 24px;
+        }
+
+        .guild-item:hover {
+            border-radius: 40%;
+            transform: scale(1.1);
+        }
+
+        .guild-item.active {
+            border-radius: 40%;
+            background: var(--primary-color);
+        }
+
+        /* ==================== CHANNEL SIDEBAR ==================== */
+        .channel-sidebar {
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .sidebar-header button {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        .channels-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .channel-item {
+            padding: 8px 16px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .channel-item:hover {
+            background: var(--chat-bg);
+            color: var(--text-primary);
+        }
+
+        .channel-item.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .channel-icon {
+            font-size: 16px;
+        }
+
+        /* ==================== MAIN CHAT AREA ==================== */
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            background: var(--chat-bg);
+        }
+
+        .chat-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-header-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .chat-header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .header-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s ease;
+        }
+
+        .header-btn:hover {
+            color: var(--text-primary);
+        }
+
+        #messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+            scroll-snap-type: y proximity;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #messages-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #messages-container::-webkit-scrollbar-track {
+            background: var(--chat-bg);
+        }
+
+        #messages-container::-webkit-scrollbar-thumb {
+            background: var(--secondary-color);
+            border-radius: 4px;
+        }
+
+        #messages-container::-webkit-scrollbar-thumb:hover {
+            background: #72767d;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            animation: fadeIn 0.2s ease;
+            scroll-snap-align: end;
+            scroll-snap-stop: always;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), #4752c4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .message-content {
+            flex: 1;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .message-username {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .message-text {
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        .message-media {
+            margin-top: 8px;
+            border-radius: 4px;
+            max-width: 400px;
+        }
+
+        .message-media img {
+            max-width: 100%;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .message-media video {
+            max-width: 100%;
+            border-radius: 4px;
+        }
+
+        .input-area {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-area input {
+            flex: 1;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 21px;
+            padding: 11px 16px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .input-area input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .input-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .input-btn:hover {
+            background: #4752c4;
+        }
+
+        .input-file {
+            display: none;
+        }
+
+        /* ==================== RIGHT SIDEBAR (MEMBERS/USERS) ==================== */
+        .members-sidebar {
+            background: var(--sidebar-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            max-width: 240px;
+        }
+
+        .members-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .members-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .member-item {
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+
+        .member-item:hover {
+            background: var(--chat-bg);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .status-indicator.offline {
+            background: var(--text-secondary);
+        }
+
+        /* ==================== PROFILE PANEL ==================== */
+        .profile-panel {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 400px;
+            height: 100%;
+            background: var(--chat-bg);
+            border-left: 1px solid var(--border-color);
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .profile-panel.show {
+            transform: translateX(0);
+        }
+
+        .profile-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .profile-header {
+            padding: 60px 24px 24px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), #4752c4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 40px;
+            margin: 0 auto 12px;
+        }
+
+        .profile-name {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .profile-bio {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .profile-content {
+            padding: 24px;
+            flex: 1;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 8px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-field {
+            margin-bottom: 16px;
+        }
+
+        .form-field label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-field input,
+        .form-field textarea {
+            width: 100%;
+            padding: 8px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-field textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .save-btn {
+            width: 100%;
+            padding: 10px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .save-btn:hover {
+            background: #4752c4;
+        }
+
+        .shop-item {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .shop-item-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .shop-item-price {
+            color: var(--success);
+            font-weight: 600;
+            margin-right: 12px;
+        }
+
+        .buy-btn {
+            padding: 6px 12px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .friend-item {
+            padding: 12px;
+            background: var(--bg-color);
+            border-radius: 4px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .friend-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .friend-status {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .coins-display {
+            font-size: 14px;
+            color: var(--success);
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        /* ==================== MODAL ==================== */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1500;
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: var(--chat-bg);
+            padding: 32px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* ==================== SCROLLBAR ==================== */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--secondary-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5a5d60;
+        }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 72px 240px 1fr;
+            }
+
+            .members-sidebar {
+                display: none;
+            }
+
+            .profile-panel {
+                width: 300px;
+                transform: translateX(300px);
+            }
+
+            .profile-panel.show {
+                transform: translateX(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 72px 1fr;
+            }
+
+            .channel-sidebar {
+                display: none;
+                position: fixed;
+                left: 72px;
+                top: 0;
+                width: 240px;
+                height: 100%;
+                z-index: 999;
+            }
+
+            .channel-sidebar.show {
+                display: flex;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- AUTH CONTAINER -->
+    <div class="auth-container" id="authContainer">
+        <div class="auth-box">
+            <h2 id="authTitle">Login</h2>
+            <form id="authForm" onsubmit="handleAuth(event)">
+                <div id="registerFields" style="display: none;">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="username" placeholder="Choose a username" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="email" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="auth-button" id="authButton">Login</button>
+            </form>
+            <div class="auth-toggle">
+                <span>Don't have an account? <button type="button" onclick="toggleAuthMode()">Register</button></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div class="main-container" id="mainApp">
+        <!-- GUILD SIDEBAR -->
+        <div class="guild-sidebar">
+            <div class="guild-item active" onclick="showSection('chat')" title="Chat">
+                <i class="fas fa-comment"></i>
+            </div>
+            <div class="guild-item" onclick="showSection('friends')" title="Friends">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="guild-item" onclick="showSection('shop')" title="Shop">
+                <i class="fas fa-store"></i>
+            </div>
+        </div>
+
+        <!-- CHANNEL SIDEBAR -->
+        <div class="channel-sidebar" id="channelSidebar">
+            <div class="sidebar-header">
+                <h3>Messages</h3>
+                <button onclick="toggleChannelSidebar()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="channels-list" id="channelsList">
+                <!-- Direct messages will be populated here by loadFriendsForDM() -->
+            </div>
+        </div>
+
+        <!-- CHAT AREA -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <div class="chat-header-left">
+                    <button class="header-btn" onclick="toggleChannelSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
+                </div>
+                <div class="chat-header-actions">
+                    <button class="header-btn" onclick="openProfile()" title="Profile">
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                    <button class="header-btn" onclick="logout()" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="messages-container"></div>
+            
+            <div id="typingIndicator" style="display: none; padding: 10px; color: var(--text-secondary); font-size: 12px; font-style: italic;"></div>
+
+            <div class="input-area">
+                <button class="input-btn" onclick="document.getElementById('fileInput').click()" title="Upload file">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+                <input type="text" id="messageInput" placeholder="Message..." onkeypress="handleMessageKeypress(event)">
+                <button class="input-btn" onclick="sendMessage()" title="Send">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+                <input type="file" id="fileInput" class="input-file" onchange="handleFileUpload(event)" accept="image/*,video/*">
+            </div>
+        </div>
+
+        <!-- MEMBERS SIDEBAR -->
+        <div class="members-sidebar">
+            <div class="members-header">👥 Online Members</div>
+            <div class="members-list" id="membersList"></div>
+        </div>
+    </div>
+
+    <!-- PROFILE PANEL -->
+    <div class="profile-panel" id="profilePanel">
+        <button class="profile-close" onclick="closeProfile()"><i class="fas fa-times"></i></button>
+        <div class="profile-header">
+            <div class="profile-avatar" id="profileAvatar">U</div>
+            <div class="profile-name" id="profileName">Username</div>
+            <div class="profile-bio" id="profileBio">No bio yet</div>
+        </div>
+        <div class="profile-content">
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="switchProfileTab('profile')">Profile</button>
+                <button class="tab-btn" onclick="switchProfileTab('inventory')">Inventory</button>
+            </div>
+
+            <!-- Profile Tab -->
+            <div class="tab-content active" id="profileTab">
+                <div class="form-field">
+                    <label>Profile Picture</label>
+                    <button class="save-btn" onclick="document.getElementById('profileImageInput').click()">Upload Profile Picture</button>
+                    <input type="file" id="profileImageInput" class="input-file" onchange="uploadProfileImage(event)" accept="image/*" style="display: none;">
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 5px;">Click to upload your profile picture</p>
+                </div>
+                <div class="form-field">
+                    <label>Username</label>
+                    <input type="text" id="editUsername" placeholder="Username">
+                </div>
+                <div class="form-field">
+                    <label>Bio</label>
+                    <textarea id="editBio" placeholder="Tell us about yourself"></textarea>
+                </div>
+                <button class="save-btn" onclick="saveProfile()">Save Profile</button>
+            </div>
+
+            <!-- Inventory Tab -->
+            <div class="tab-content" id="inventoryTab">
+                <div id="inventoryList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FRIENDS MODAL -->
+    <div class="modal hidden" id="friendsModal">
+        <div class="modal-content">
+            <h2><i class="fas fa-users"></i> Friends & Friend Requests</h2>
+            <h3 style="margin-top: 20px; margin-bottom: 10px;">Pending Requests</h3>
+            <div id="friendRequests"></div>
+            <h3 style="margin-top: 20px; margin-bottom: 10px;">Your Friends</h3>
+            <div id="friendsList"></div>
+            <button class="save-btn" onclick="closeFriendsModal()" style="margin-top: 20px;">Close</button>
+        </div>
+    </div>
+
+    <!-- SHOP MODAL -->
+    <div class="modal hidden" id="shopModal">
+        <div class="modal-content">
+            <h2><i class="fas fa-store"></i> Shop</h2>
+            <div class="coins-display" id="coinsDisplay">💰 Coins: 1000</div>
+            <div id="shopList"></div>
+            <button class="save-btn" onclick="closeShopModal()" style="margin-top: 20px;">Close</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>

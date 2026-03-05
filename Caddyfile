@@ -1,0 +1,22 @@
+# Example Caddyfile for self-hosting with automatic HTTPS
+# Replace 'yourdomain.duckdns.org' with your actual domain
+
+yourdomain.duckdns.org {
+    reverse_proxy localhost:3000
+    
+    # Optional: Enable compression
+    encode gzip
+    
+    # Optional: Add security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
+
+# Alternative: Use with custom domain
+# example.com {
+#     reverse_proxy localhost:3000
+# }

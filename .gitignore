@@ -1,0 +1,8 @@
+node_modules/
+certs/
+*.pfx
+*.pem
+*.key
+*.cer
+.env
+.DS_Store
