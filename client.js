@@ -1058,21 +1058,29 @@ function updateMembersList(users) {
             avatar.style.backgroundSize = 'cover';
             avatar.style.backgroundPosition = 'center';
         } else {
-            avatar.textContent = user.username.charAt(0).toUpperCase();
+            avatar.textContent = user.username ? user.username.charAt(0).toUpperCase() : 'U';
         }
 
         const status = document.createElement('div');
         status.className = 'status-indicator';
 
         const name = document.createElement('span');
-        name.textContent = user.username;
+        name.textContent = user.username || 'Unknown';
+
+        // Get correct user ID (handle different property names)
+        const userId = user.id || user._id || user.userId;
+        const username = user.username || 'User';
 
         // Make item clickable to view profile
         item.onclick = () => {
-            if (user.id === currentUser.id) {
+            if (!userId) {
+                showToast('❌ User ID not available', 'error');
+                return;
+            }
+            if (userId === currentUser.id || userId === currentUser._id) {
                 openProfile();
             } else {
-                visitUserProfile(user.id, user.username);
+                visitUserProfile(userId, username);
             }
         };
 
@@ -2933,20 +2941,17 @@ function changeGroupPhoto() {
 // ==================== VIDEO CALLS ====================
 
 function startVideoCall() {
-    if (currentChatContext.type === 'none') {
-        showToast('Open a chat or group first', 'warning');
+    if (!currentChatContext || currentChatContext.type === 'none' || !currentChatContext.id) {
+        showToast('❌ Please open a chat first', 'warning');
         return;
     }
     
-    const targetName = currentChatContext.name || 'Unknown';
-    const callType = currentChatContext.type === 'group' ? 'Group' : '1-on-1';
+    const targetName = currentChatContext.name || 'User';
+    const targetId = currentChatContext.id;
+    const callType = currentChatContext.type === 'group' ? 'Group Call' : 'Video Call';
     
-    showToast(`📞 Starting ${callType} video call with ${targetName}...`, 'success');
-    
-    // TODO: Implement WebRTC video call
-    setTimeout(() => {
-        openVideoCallModal();
-    }, 500);
+    // Open video call modal
+    openVideoCallModal(targetName, targetId, callType);
 }
 
 // ==================== ARCHIVE CHATS ====================
@@ -3239,7 +3244,7 @@ function resolveCustomDialog(value) {
 
 function showQRCodeModal() {
     const modal = document.getElementById('qrModal');
-    const canvas = document.getElementById('qrCodeCanvas');
+    const qrContainer = document.querySelector('.qr-code-container');
     const userIdSpan = document.getElementById('qrUserId');
     
     if (!currentUser || !currentUser.id) {
@@ -3247,28 +3252,28 @@ function showQRCodeModal() {
         return;
     }
     
-    // Clear previous QR code by removing old canvas
-    const qrContainer = canvas.parentElement;
-    const oldCanvas = qrContainer.querySelector('canvas');
-    if (oldCanvas) {
-        oldCanvas.remove();
-    }
+    // Clear previous QR code completely
+    qrContainer.innerHTML = '';
     
-    // Create new canvas
-    const newCanvas = document.createElement('canvas');
-    newCanvas.id = 'qrCodeCanvas';
-    qrContainer.appendChild(newCanvas);
+    // Create new container div for QR code
+    const qrDiv = document.createElement('div');
+    qrDiv.id = 'qrCodeCanvas';
+    qrDiv.style.backgroundColor = '#ffffff';
+    qrDiv.style.padding = '10px';
+    qrDiv.style.borderRadius = '8px';
+    qrDiv.style.display = 'inline-block';
+    qrContainer.appendChild(qrDiv);
     
     // Display user ID
-    userIdSpan.textContent = currentUser.id;
+    userIdSpan.textContent = currentUser.id || currentUser._id || 'Unknown';
     
     // Generate QR code with friend request data
-    const friendRequestData = `FRIEND_REQUEST:${currentUser.id}:${currentUser.username || 'User'}`;
+    const friendRequestData = `FRIEND_REQUEST:${currentUser.id || currentUser._id}:${currentUser.username || 'User'}`;
     
     // Use QRCode library if available, otherwise use API
     if (typeof QRCode !== 'undefined') {
         try {
-            new QRCode(newCanvas, {
+            new QRCode(qrDiv, {
                 text: friendRequestData,
                 width: 200,
                 height: 200,
@@ -3276,39 +3281,50 @@ function showQRCodeModal() {
                 colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel.H
             });
+            console.log('✅ QR Code generated successfully');
         } catch (error) {
-            console.error('QRCode error:', error);
-            generateQRCodeFallback(newCanvas, friendRequestData);
+            console.error('❌ QRCode library error:', error);
+            generateQRCodeFallback(qrDiv, friendRequestData);
         }
     } else {
+        console.warn('⚠️ QRCode library not loaded, using fallback');
         // Use API fallback
-        generateQRCodeFallback(newCanvas, friendRequestData);
+        generateQRCodeFallback(qrDiv, friendRequestData);
     }
     
     modal.classList.add('show');
 }
 
-function generateQRCodeFallback(canvas, data) {
-    const ctx = canvas.getContext('2d');
-    canvas.width = 200;
-    canvas.height = 200;
+function generateQRCodeFallback(container, data) {
+    console.log('📱 Using QR Code API fallback');
     
-    // Use QR Code API
+    // Use QR Code API with image
     const img = new Image();
+    img.style.width = '200px';
+    img.style.height = '200px';
+    img.style.display = 'block';
+    img.style.backgroundColor = '#ffffff';
+    img.style.borderRadius = '8px';
+    
     img.onload = () => {
-        ctx.drawImage(img, 0, 0, 200, 200);
+        console.log('✅ QR Code loaded from API');
+        container.innerHTML = '';
+        container.appendChild(img);
     };
+    
     img.onerror = () => {
-        // Final fallback - draw text
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, 200, 200);
-        ctx.fillStyle = '#000';
-        ctx.font = 'bold 16px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('Scan QR Code', 100, 80);
-        ctx.fillText('User ID:', 100, 110);
-        ctx.fillText(currentUser.id.toString(), 100, 130);
+        console.error('❌ QR Code API failed');
+        // Final fallback - show text
+        container.innerHTML = `
+            <div style="width: 200px; height: 200px; background: white; border: 2px solid #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 20px; box-sizing: border-box;">
+                <div style="font-size: 24px; margin-bottom: 10px;">📱</div>
+                <div style="font-weight: bold; color: #000; margin-bottom: 8px;">Friend Request</div>
+                <div style="font-size: 12px; color: #666; word-break: break-all; text-align: center;">${currentUser.username || 'User'}</div>
+                <div style="font-size: 10px; color: #999; margin-top: 8px;">ID: ${(currentUser.id || currentUser._id || 'N/A').substring(0, 8)}...</div>
+            </div>
+        `;
     };
+    
     img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
 }
 
@@ -3365,57 +3381,81 @@ function scanQRCodeForFriend() {
 
 // ==================== VIDEO CALL MODAL ====================
 
-function openVideoCallModal() {
-    const targetName = currentChatContext.name || 'Unknown';
+function openVideoCallModal(targetName, targetId, callType) {
+    targetName = targetName || currentChatContext.name || 'User';
+    targetId = targetId || currentChatContext.id;
+    callType = callType || 'Video Call';
     
-    customAlert(
-        `📞 <strong>Video Call Starting...</strong><br><br>` +
-        `Calling: <strong>${targetName}</strong><br>` +
-        `Type: ${currentChatContext.type === 'group' ? 'Group Call' : '1-on-1 Call'}<br><br>` +
-        `<em>Waiting for ${targetName} to answer...</em><br><br>` +
-        `<small>⚠️ Video call uses WebRTC (P2P connection)</small>`,
-        '📞 Video Call',
-        '📞'
-    );
+    const html = `
+        <div style="text-align: center; padding: 20px;">
+            <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 60px; animation: pulse 2s infinite;">
+                📞
+            </div>
+            <h3 style="margin: 15px 0; color: var(--text-primary); font-size: 24px;">${callType}</h3>
+            <p style="margin: 10px 0; color: var(--text-secondary); font-size: 16px;">Calling <strong style="color: var(--primary-color);">${targetName}</strong></p>
+            <p style="margin: 20px 0; color: var(--text-secondary); font-size: 14px; font-style: italic;">🔊 Ringing...</p>
+            <div style="margin-top: 30px; padding: 15px; background: rgba(88, 101, 242, 0.1); border-radius: 8px; border: 1px solid var(--primary-color);">
+                <p style="color: var(--text-secondary); font-size: 13px; margin: 0;">💡 <strong>Video Call Ready!</strong></p>
+                <p style="color: var(--text-secondary); font-size: 12px; margin: 8px 0 0 0;">Full WebRTC integration will enable live video/audio streaming</p>
+            </div>
+            <button onclick="closeCustomDialog();" style="margin-top: 20px; padding: 12px 30px; background: var(--danger); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                ❌ End Call
+            </button>
+        </div>
+        <style>
+            @keyframes pulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+            }
+        </style>
+    `;
     
-    // Emit to server
-    if (socket && socket.connected && currentChatContext.id) {
+    customAlert(html, '📞 Video Call', '📞');
+    
+    // Emit to server if connected
+    if (socket && socket.connected && targetId) {
         socket.emit('start video call', { 
-            targetId: currentChatContext.id, 
-            type: currentChatContext.type,
+            targetId: targetId, 
+            type: currentChatContext.type || 'dm',
             targetName: targetName
         });
+        showToast(`📞 Calling ${targetName}...`, 'success');
     }
 }
 
 function visitUserProfile(userId, userName = 'User') {
+    // Validate inputs
+    if (!userId || userId === 'undefined') {
+        showToast('❌ Invalid user ID', 'error');
+        return;
+    }
+
     // Create a more detailed profile view
     const html = `
         <div style="text-align: center; padding: 20px 0;">
-            <div style="width: 100px; height: 100px; background: var(--primary-color); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 48px; color: white;">
-                👤
+            <div style="width: 100px; height: 100px; background: linear-gradient(135deg, var(--primary-color), #4752c4); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 48px; color: white;">
+                ${userName.charAt(0).toUpperCase()}
             </div>
             <h3 style="margin: 10px 0; color: var(--text-primary);">${userName}</h3>
-            <p style="margin: 5px 0; color: var(--text-secondary); font-size: 13px;">User ID: ${userId}</p>
-            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
-                <button onclick="{ 
+            <p style="margin: 5px 0; color: var(--text-secondary); font-size: 13px;">Status: <span style="color: var(--success);">●</span> Online</p>
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button onclick="(function() { 
                     currentChatContext = { id: '${userId}', name: '${userName}', type: 'dm' }; 
                     openDM('${userId}', '${userName}');
                     closeCustomDialog();
-                }" style="padding: 8px 16px; background: var(--success); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
-                    💬 Message
+                })()" style="padding: 10px 20px; background: var(--success); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
+                    💬 Send Message
                 </button>
-                <button onclick="{ 
+                <button onclick="(function() { 
                     currentChatContext = { id: '${userId}', name: '${userName}', type: 'dm' }; 
-                    openVideoCallModal();
                     closeCustomDialog();
-                }" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
-                    📞 Call
+                    setTimeout(() => startVideoCall(), 200);
+                })()" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
+                    📞 Video Call
                 </button>
-                <button onclick="{ 
+                <button onclick="(function() { 
                     sendFriendRequest('${userId}', '${userName}');
-                    closeCustomDialog();
-                }" style="padding: 8px 16px; background: #8e44ad; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500;">
+                })()" style="padding: 10px 20px; background: #8e44ad; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
                     👥 Add Friend
                 </button>
             </div>

@@ -1402,27 +1402,28 @@
             }
 
             .main-container {
-                grid-template-columns: 60px 1fr;
+                grid-template-columns: 45px 1fr;
                 height: 100vh;
                 height: 100dvh;
                 max-height: -webkit-fill-available;
             }
 
-            /* Mobile Guild Sidebar */
+            /* Mobile Guild Sidebar - Compact */
             .guild-sidebar {
-                padding: 4px 0;
+                padding: 2px 0;
+                width: 45px;
             }
 
             .guild-item {
-                width: 48px;
-                height: 48px;
-                font-size: 20px;
-                margin-bottom: 6px;
+                width: 40px;
+                height: 40px;
+                font-size: 18px;
+                margin-bottom: 4px;
             }
 
             .guild-divider {
-                width: 28px;
-                margin: 6px 0;
+                width: 24px;
+                margin: 4px 0;
             }
 
             /* Mobile Channel Sidebar */
@@ -1939,8 +1940,14 @@
         /* ==================== ENHANCED HOVER EFFECTS ==================== */
         .danger-hover:hover {
             color: var(--danger) !important;
-            transform: scale(1.1);
+            transform: scale(1.08);
             filter: drop-shadow(0 0 8px rgba(240, 71, 71, 0.6));
+        }
+
+        /* Keep text white on danger button hover */
+        .save-btn.danger-hover:hover {
+            color: white !important;
+            transform: scale(1.02) !important;
         }
 
         .success-hover:hover {
@@ -2129,7 +2136,7 @@
                     <button class="header-btn success" onclick="addCurrentChatToList()" title="Add chat to list">
                         <i class="fas fa-bookmark"></i>
                     </button>
-                    <button class="header-btn" onclick="closeCurrentChat()" title="Close Chat" id="closeChatBtn" style="display: none;">
+                    <button class="header-btn danger-hover" onclick="closeCurrentChat()" title="Close Chat" id="closeChatBtn" style="display: none;">
                         <i class="fas fa-times-circle"></i>
                     </button>
                     <button class="header-btn" onclick="openSettings()" title="Settings">
@@ -2556,6 +2563,7 @@
             <div id="groupsList" style="margin-top: 16px;"></div>
             <button class="save-btn" onclick="closeGroupsModal()" style="margin-top: 20px;">Close</button>
         </div>
+
     </div>
 
     <!-- QR CODE MODAL -->
