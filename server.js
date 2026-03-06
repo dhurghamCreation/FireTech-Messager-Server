@@ -4,7 +4,7 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const https = require('https');
-const mongoose = require('mongoose');
+const { Sequelize, DataTypes, Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
@@ -17,106 +17,199 @@ const app = express();
 // Middleware
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+  }
+  next();
+});
+
 app.use(express.static(__dirname));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/discord-app', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => console.log('MongoDB connected')).catch(err => console.error('MongoDB connection error:', err));
+// ======================== DATABASE CONNECTION ========================
 
-// ======================== SCHEMAS ========================
+const sequelize = new Sequelize(
+  process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/discord-app',
+  {
+    dialect: 'postgres',
+    logging: false,
+    protocol: process.env.DATABASE_URL ? 'postgres' : undefined,
+    dialectOptions: process.env.DATABASE_URL ? { ssl: { require: true, rejectUnauthorized: false } } : undefined
+  }
+);
 
-// User Schema
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  avatar: { type: String, default: '' },
-  bio: { type: String, default: 'No bio yet' },
-  status: { type: String, enum: ['online', 'offline', 'away'], default: 'offline' },
-  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  coins: { type: Number, default: 1000 },
-  createdAt: { type: Date, default: Date.now }
+// ======================== MODELS ========================
+
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  username: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  avatar: {
+    type: DataTypes.TEXT,
+    defaultValue: ''
+  },
+  bio: {
+    type: DataTypes.STRING,
+    defaultValue: 'No bio yet'
+  },
+  phoneNumber: {
+    type: DataTypes.STRING,
+    defaultValue: ''
+  },
+  status: {
+    type: DataTypes.ENUM('online', 'offline', 'away'),
+    defaultValue: 'offline'
+  },
+  coins: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1000
+  }
 });
 
-// Channel Schema
-const channelSchema = new mongoose.Schema({
-  channelId: String,
-  name: String,
-  type: { type: String, enum: ['text', 'voice'], default: 'text' },
-  description: String,
-  isPrivate: { type: Boolean, default: false },
-  members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  createdAt: { type: Date, default: Date.now }
+const Channel = sequelize.define('Channel', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  channelId: DataTypes.STRING,
+  name: DataTypes.STRING,
+  type: {
+    type: DataTypes.ENUM('text', 'voice'),
+    defaultValue: 'text'
+  },
+  description: DataTypes.STRING,
+  isPrivate: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  }
 });
 
-// Message Schema
-const messageSchema = new mongoose.Schema({
-  messageId: String,
-  channelId: String,
-  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  senderUsername: String,
-  content: String,
-  mediaType: { type: String, enum: ['text', 'image', 'video', 'emoji'], default: 'text' },
-  mediaUrl: String,
-  timestamp: { type: Date, default: Date.now },
-  reactions: [{ emoji: String, users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }] }]
+const Message = sequelize.define('Message', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  messageId: DataTypes.STRING,
+  channelId: DataTypes.STRING,
+  senderUsername: DataTypes.STRING,
+  content: DataTypes.TEXT,
+  mediaType: {
+    type: DataTypes.ENUM('text', 'image', 'video', 'emoji', 'sticker', 'gif', 'voice'),
+    defaultValue: 'text'
+  },
+  mediaUrl: DataTypes.TEXT
 });
 
-// Shop Item Schema
-const shopItemSchema = new mongoose.Schema({
-  itemId: String,
-  name: String,
-  description: String,
-  price: Number,
-  category: String,
-  image: String,
-  createdAt: { type: Date, default: Date.now }
+const ShopItem = sequelize.define('ShopItem', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  itemId: DataTypes.STRING,
+  name: DataTypes.STRING,
+  description: DataTypes.STRING,
+  price: DataTypes.INTEGER,
+  category: DataTypes.STRING,
+  image: DataTypes.TEXT
 });
 
-// User Inventory Schema
-const inventorySchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  itemId: String,
-  quantity: { type: Number, default: 1 },
-  purchasedAt: { type: Date, default: Date.now }
+const Inventory = sequelize.define('Inventory', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  itemId: DataTypes.STRING,
+  quantity: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1
+  }
 });
 
-// Friend Request Schema
-const friendRequestSchema = new mongoose.Schema({
-  from: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  to: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
-  createdAt: { type: Date, default: Date.now }
+const FriendRequest = sequelize.define('FriendRequest', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  status: {
+    type: DataTypes.ENUM('pending', 'accepted', 'rejected'),
+    defaultValue: 'pending'
+  }
 });
 
-// Direct Message Schema
-const directMessageSchema = new mongoose.Schema({
-  messageId: String,
-  from: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  to: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  fromUsername: String,
-  toUsername: String,
-  content: String,
-  mediaType: { type: String, enum: ['text', 'image', 'video', 'emoji'], default: 'text' },
-  mediaUrl: String,
-  timestamp: { type: Date, default: Date.now },
-  readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+const DirectMessage = sequelize.define('DirectMessage', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  messageId: DataTypes.STRING,
+  fromUsername: DataTypes.STRING,
+  toUsername: DataTypes.STRING,
+  content: DataTypes.TEXT,
+  mediaType: {
+    type: DataTypes.ENUM('text', 'image', 'video', 'emoji', 'sticker', 'gif', 'voice'),
+    defaultValue: 'text'
+  },
+  mediaUrl: DataTypes.TEXT
 });
 
-// Models
-const User = mongoose.model('User', userSchema);
-const Channel = mongoose.model('Channel', channelSchema);
-const Message = mongoose.model('Message', messageSchema);
-const ShopItem = mongoose.model('ShopItem', shopItemSchema);
-const Inventory = mongoose.model('Inventory', inventorySchema);
-const FriendRequest = mongoose.model('FriendRequest', friendRequestSchema);
-const DirectMessage = mongoose.model('DirectMessage', directMessageSchema);
+// ======================== ASSOCIATIONS ========================
 
-// Auth Middleware
+User.belongsToMany(User, {
+  as: 'friends',
+  through: 'UserFriends',
+  foreignKey: 'UserId',
+  otherKey: 'FriendId'
+});
+
+User.hasMany(Channel, { foreignKey: 'createdById', as: 'channels' });
+Channel.belongsTo(User, { foreignKey: 'createdById', as: 'creator' });
+
+Channel.belongsToMany(User, { through: 'ChannelMembers', foreignKey: 'ChannelId', otherKey: 'UserId' });
+User.belongsToMany(Channel, { through: 'ChannelMembers', foreignKey: 'UserId', otherKey: 'ChannelId' });
+
+User.hasMany(Message, { foreignKey: 'senderId' });
+Message.belongsTo(User, { foreignKey: 'senderId' });
+
+User.hasMany(Inventory, { foreignKey: 'userId' });
+Inventory.belongsTo(User, { foreignKey: 'userId' });
+
+ShopItem.hasMany(Inventory, { foreignKey: 'shopItemId' });
+Inventory.belongsTo(ShopItem, { foreignKey: 'shopItemId' });
+
+FriendRequest.belongsTo(User, { as: 'from', foreignKey: 'fromId' });
+FriendRequest.belongsTo(User, { as: 'to', foreignKey: 'toId' });
+
+DirectMessage.belongsTo(User, { as: 'sender', foreignKey: 'fromId' });
+DirectMessage.belongsTo(User, { as: 'recipient', foreignKey: 'toId' });
+
+// ======================== AUTH MIDDLEWARE ========================
+
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -132,7 +225,6 @@ const authenticateToken = (req, res, next) => {
 
 // ======================== AUTH ROUTES ========================
 
-// Register
 app.post('/api/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -141,30 +233,25 @@ app.post('/api/register', async (req, res) => {
       return res.status(400).json({ error: 'All fields required' });
     }
 
-    if (await User.findOne({ username })) {
-      return res.status(400).json({ error: 'Username already taken' });
-    }
-
-    if (await User.findOne({ email })) {
-      return res.status(400).json({ error: 'Email already registered' });
+    const existingUser = await User.findOne({ where: { [Op.or]: [{ username }, { email }] } });
+    if (existingUser) {
+      return res.status(400).json({ error: existingUser.username === username ? 'Username already taken' : 'Email already registered' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ username, email, password: hashedPassword });
-    await user.save();
+    const user = await User.create({ username, email, password: hashedPassword });
 
     const token = jwt.sign(
-      { userId: user._id, username: user.username },
+      { userId: user.id, username: user.username },
       process.env.JWT_SECRET || 'secret_key'
     );
 
-    res.status(201).json({ token, user: { id: user._id, username, email } });
+    res.status(201).json({ token, user: { id: user.id, username, email } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Login
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -173,7 +260,7 @@ app.post('/api/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -184,21 +271,48 @@ app.post('/api/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { userId: user._id, username: user.username },
+      { userId: user.id, username: user.username },
       process.env.JWT_SECRET || 'secret_key'
     );
 
-    res.json({ 
-      token, 
-      user: { 
-        id: user._id, 
-        username: user.username, 
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
         email: user.email,
         avatar: user.avatar,
         bio: user.bio,
+        phoneNumber: user.phoneNumber,
         coins: user.coins
-      } 
+      }
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email and new password are required' });
+    }
+
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email' });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -206,18 +320,18 @@ app.post('/api/login', async (req, res) => {
 
 // ======================== PROFILE ROUTES ========================
 
-// Get Profile
 app.get('/api/profile/:userId', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).populate('friends');
+    const user = await User.findByPk(req.params.userId, { include: ['friends'] });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     res.json({
-      id: user._id,
+      id: user.id,
       username: user.username,
       email: user.email,
       avatar: user.avatar,
       bio: user.bio,
+      phoneNumber: user.phoneNumber,
       status: user.status,
       coins: user.coins,
       friends: user.friends,
@@ -228,16 +342,16 @@ app.get('/api/profile/:userId', authenticateToken, async (req, res) => {
   }
 });
 
-// Update Profile
 app.put('/api/profile', authenticateToken, async (req, res) => {
   try {
-    const { username, bio, avatar } = req.body;
-    const user = await User.findById(req.user.userId);
+    const { username, bio, avatar, phoneNumber } = req.body;
+    const user = await User.findByPk(req.user.userId);
 
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     if (username && username !== user.username) {
-      if (await User.findOne({ username })) {
+      const existing = await User.findOne({ where: { username } });
+      if (existing) {
         return res.status(400).json({ error: 'Username already taken' });
       }
       user.username = username;
@@ -245,16 +359,29 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
 
     if (bio) user.bio = bio;
     if (avatar) user.avatar = avatar;
+    if (typeof phoneNumber === 'string') user.phoneNumber = phoneNumber;
 
     await user.save();
 
-    res.json({ 
+    for (const [socketId, onlineUser] of onlineUsers.entries()) {
+      if (onlineUser.userId === user.id) {
+        onlineUsers.set(socketId, {
+          ...onlineUser,
+          username: user.username,
+          avatar: user.avatar
+        });
+      }
+    }
+    io.emit('users update', Array.from(onlineUsers.values()));
+
+    res.json({
       message: 'Profile updated',
       user: {
-        id: user._id,
+        id: user.id,
         username: user.username,
         avatar: user.avatar,
-        bio: user.bio
+        bio: user.bio,
+        phoneNumber: user.phoneNumber
       }
     });
   } catch (error) {
@@ -262,20 +389,29 @@ app.put('/api/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// Upload Profile Image
 app.post('/api/profile/upload', authenticateToken, async (req, res) => {
   try {
     const { avatar } = req.body;
-    const user = await User.findById(req.user.userId);
+    const user = await User.findByPk(req.user.userId);
 
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     if (avatar) {
       user.avatar = avatar;
       await user.save();
+
+      for (const [socketId, onlineUser] of onlineUsers.entries()) {
+        if (onlineUser.userId === user.id) {
+          onlineUsers.set(socketId, {
+            ...onlineUser,
+            avatar: user.avatar
+          });
+        }
+      }
+      io.emit('users update', Array.from(onlineUsers.values()));
     }
 
-    res.json({ 
+    res.json({
       message: 'Profile image updated',
       avatar: user.avatar
     });
@@ -286,42 +422,43 @@ app.post('/api/profile/upload', authenticateToken, async (req, res) => {
 
 // ======================== FRIENDS ROUTES ========================
 
-// Send Friend Request
 app.post('/api/friends/request', authenticateToken, async (req, res) => {
   try {
     const { toUserId } = req.body;
-    const request = new FriendRequest({ from: req.user.userId, to: toUserId });
-    await request.save();
+    await FriendRequest.create({ fromId: req.user.userId, toId: toUserId });
     res.status(201).json({ message: 'Friend request sent' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get Friend Requests
 app.get('/api/friends/requests', authenticateToken, async (req, res) => {
   try {
-    const requests = await FriendRequest.find({ to: req.user.userId, status: 'pending' })
-      .populate('from', 'username avatar');
+    const requests = await FriendRequest.findAll({
+      where: { toId: req.user.userId, status: 'pending' },
+      include: [{ model: User, as: 'from', attributes: ['id', 'username', 'avatar'] }]
+    });
     res.json(requests);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Accept Friend Request
 app.post('/api/friends/accept', authenticateToken, async (req, res) => {
   try {
     const { requestId } = req.body;
-    const request = await FriendRequest.findById(requestId);
+    const request = await FriendRequest.findByPk(requestId);
 
     if (!request) return res.status(404).json({ error: 'Request not found' });
 
     request.status = 'accepted';
     await request.save();
 
-    await User.findByIdAndUpdate(request.from, { $addToSet: { friends: request.to } });
-    await User.findByIdAndUpdate(request.to, { $addToSet: { friends: request.from } });
+    const fromUser = await User.findByPk(request.fromId);
+    const toUser = await User.findByPk(request.toId);
+
+    await fromUser.addFriend(toUser);
+    await toUser.addFriend(fromUser);
 
     res.json({ message: 'Friend request accepted' });
   } catch (error) {
@@ -329,11 +466,16 @@ app.post('/api/friends/accept', authenticateToken, async (req, res) => {
   }
 });
 
-// Get Friends List
 app.get('/api/friends', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).populate('friends', 'username avatar status bio');
-    res.json(user.friends);
+    const user = await User.findByPk(req.user.userId, {
+      include: {
+        association: 'friends',
+        attributes: ['id', 'username', 'avatar', 'status', 'bio'],
+        through: { attributes: [] }
+      }
+    });
+    res.json(user.friends || []);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -341,41 +483,59 @@ app.get('/api/friends', authenticateToken, async (req, res) => {
 
 // ======================== DIRECT MESSAGES ROUTES ========================
 
-// Get DMs with a specific friend
 app.get('/api/dms/:friendId', authenticateToken, async (req, res) => {
   try {
     const { friendId } = req.params;
-    const messages = await DirectMessage.find({
-      $or: [
-        { from: req.user.userId, to: friendId },
-        { from: friendId, to: req.user.userId }
-      ]
-    }).sort({ timestamp: 1 });
+    const messages = await DirectMessage.findAll({
+      where: {
+        [Op.or]: [
+          { fromId: req.user.userId, toId: friendId },
+          { fromId: friendId, toId: req.user.userId }
+        ]
+      },
+      order: [['createdAt', 'ASC']]
+    });
 
-    res.json(messages);
+    const userIds = [...new Set(messages.map(msg => msg.fromId))];
+    const users = await User.findAll({
+      where: { id: userIds },
+      attributes: ['id', 'avatar', 'username']
+    });
+    const userMap = new Map(users.map(user => [String(user.id), user]));
+
+    const enriched = messages.map(msg => {
+      const sender = userMap.get(String(msg.fromId));
+      return {
+        ...msg.toJSON(),
+        fromAvatar: sender?.avatar || null,
+        fromUsername: sender?.username || msg.fromUsername,
+        timestamp: msg.createdAt
+      };
+    });
+
+    res.json(enriched);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Send DM (POST also works in addition to Socket.IO)
 app.post('/api/dms', authenticateToken, async (req, res) => {
   try {
     const { toUserId, content, mediaType, mediaUrl } = req.body;
-    const fromUser = await User.findById(req.user.userId);
-    const toUser = await User.findById(toUserId);
+    const fromUser = await User.findByPk(req.user.userId);
+    const toUser = await User.findByPk(toUserId);
 
     if (!toUser) return res.status(404).json({ error: 'User not found' });
 
-    // Check if users are friends
-    if (!fromUser.friends.includes(toUserId)) {
+    const friends = await fromUser.getFriends({ where: { id: toUserId } });
+    if (friends.length === 0) {
       return res.status(403).json({ error: 'Can only DM friends' });
     }
 
-    const dm = new DirectMessage({
+    const dm = await DirectMessage.create({
       messageId: uuidv4(),
-      from: req.user.userId,
-      to: toUserId,
+      fromId: req.user.userId,
+      toId: toUserId,
       fromUsername: fromUser.username,
       toUsername: toUser.username,
       content,
@@ -383,7 +543,6 @@ app.post('/api/dms', authenticateToken, async (req, res) => {
       mediaUrl: mediaUrl || null
     });
 
-    await dm.save();
     res.status(201).json(dm);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -392,22 +551,20 @@ app.post('/api/dms', authenticateToken, async (req, res) => {
 
 // ======================== SHOP ROUTES ========================
 
-// Get Shop Items
 app.get('/api/shop', authenticateToken, async (req, res) => {
   try {
-    const items = await ShopItem.find();
+    const items = await ShopItem.findAll();
     res.json(items);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Buy Shop Item
 app.post('/api/shop/buy', authenticateToken, async (req, res) => {
   try {
     const { itemId } = req.body;
-    const item = await ShopItem.findById(itemId);
-    const user = await User.findById(req.user.userId);
+    const item = await ShopItem.findByPk(itemId);
+    const user = await User.findByPk(req.user.userId);
 
     if (!item) return res.status(404).json({ error: 'Item not found' });
     if (user.coins < item.price) return res.status(400).json({ error: 'Not enough coins' });
@@ -415,8 +572,7 @@ app.post('/api/shop/buy', authenticateToken, async (req, res) => {
     user.coins -= item.price;
     await user.save();
 
-    const inventory = new Inventory({ userId: user._id, itemId: item._id });
-    await inventory.save();
+    await Inventory.create({ userId: user.id, shopItemId: item.id });
 
     res.json({ message: 'Item purchased', coins: user.coins });
   } catch (error) {
@@ -424,43 +580,13 @@ app.post('/api/shop/buy', authenticateToken, async (req, res) => {
   }
 });
 
-// Get User Inventory
 app.get('/api/inventory', authenticateToken, async (req, res) => {
   try {
-    const inventory = await Inventory.find({ userId: req.user.userId }).populate('itemId');
-    res.json(inventory);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ======================== CHANNELS ROUTES ========================
-
-// Create Channel
-app.post('/api/channels', authenticateToken, async (req, res) => {
-  try {
-    const { name, type, description, isPrivate } = req.body;
-    const channel = new Channel({
-      channelId: uuidv4(),
-      name,
-      type,
-      description,
-      isPrivate,
-      createdBy: req.user.userId,
-      members: [req.user.userId]
+    const inventory = await Inventory.findAll({
+      where: { userId: req.user.userId },
+      include: [{ model: ShopItem }]
     });
-    await channel.save();
-    res.status(201).json(channel);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get All Channels
-app.get('/api/channels', authenticateToken, async (req, res) => {
-  try {
-    const channels = await Channel.find({ $or: [{ isPrivate: false }, { members: req.user.userId }] });
-    res.json(channels);
+    res.json(inventory);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -495,23 +621,22 @@ function createServer(appInstance) {
 
 const { server, protocol } = createServer(app);
 const io = require('socket.io')(server, {
+  maxHttpBufferSize: 40 * 1024 * 1024,
   cors: {
     origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
     methods: ['GET', 'POST']
   }
 });
 
-// Store active connections
 const onlineUsers = new Map();
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // User joins with authentication token
   socket.on('join', async (data) => {
     try {
       const decoded = jwt.verify(data.token, process.env.JWT_SECRET || 'secret_key');
-      const user = await User.findById(decoded.userId);
+      const user = await User.findByPk(decoded.userId);
 
       if (user) {
         socket.userId = decoded.userId;
@@ -528,7 +653,6 @@ io.on('connection', (socket) => {
         user.status = 'online';
         await user.save();
 
-        // Broadcast updated users list
         io.emit('users update', Array.from(onlineUsers.values()));
       }
     } catch (error) {
@@ -536,71 +660,65 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Join a DM room with a friend
   socket.on('join dm', (friendId) => {
     const roomId = [socket.userId, friendId].sort().join('_');
     socket.join(roomId);
     socket.currentDmRoom = roomId;
   });
 
-  // Leave a DM room
   socket.on('leave dm', (friendId) => {
     const roomId = [socket.userId, friendId].sort().join('_');
     socket.leave(roomId);
     socket.currentDmRoom = null;
   });
 
-  // Send DM
   socket.on('send dm', async (data) => {
     try {
       const { toUserId, content, mediaType, mediaUrl } = data;
-      const fromUser = await User.findById(socket.userId);
-      const toUser = await User.findById(toUserId);
+      const fromUser = await User.findByPk(socket.userId);
+      const toUser = await User.findByPk(toUserId);
 
       if (!toUser) {
         socket.emit('error', 'User not found');
         return;
       }
 
-      // Check they are friends
-      if (!fromUser.friends.includes(toUserId)) {
+      const isSelfChat = String(toUserId) === String(socket.userId);
+      const friends = isSelfChat ? [] : await fromUser.getFriends({ where: { id: toUserId } });
+      if (!isSelfChat && friends.length === 0) {
         socket.emit('error', 'Can only DM friends');
         return;
       }
 
-      const dm = new DirectMessage({
+      const dm = await DirectMessage.create({
         messageId: uuidv4(),
-        from: socket.userId,
-        to: toUserId,
-        fromUsername: socket.username,
+        fromId: socket.userId,
+        toId: toUserId,
+        fromUsername: fromUser.username,
         toUsername: toUser.username,
         content,
         mediaType: mediaType || 'text',
         mediaUrl: mediaUrl || null
       });
 
-      await dm.save();
-
-      // Send to DM room
       const roomId = [socket.userId, toUserId].sort().join('_');
       io.to(roomId).emit('dm message', {
         messageId: dm.messageId,
         from: socket.userId,
-        fromUsername: socket.username,
-        fromAvatar: socket.userAvatar,
+        fromUsername: fromUser.username,
+        fromAvatar: fromUser.avatar,
         to: toUserId,
         toUsername: toUser.username,
         content: dm.content,
         mediaType: dm.mediaType,
         mediaUrl: dm.mediaUrl,
-        timestamp: dm.timestamp
+        timestamp: dm.createdAt
       });
     } catch (error) {
       socket.emit('error', error.message);
     }
   });
 
-  // Typing indicator for DMs
   socket.on('dm typing', (friendId) => {
     const roomId = [socket.userId, friendId].sort().join('_');
     socket.broadcast.to(roomId).emit('dm user typing', {
@@ -617,12 +735,11 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Disconnect
   socket.on('disconnect', async () => {
     try {
       const userData = onlineUsers.get(socket.id);
       if (userData) {
-        const user = await User.findById(socket.userId);
+        const user = await User.findByPk(socket.userId);
         if (user) {
           user.status = 'offline';
           await user.save();
@@ -636,7 +753,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// ======================== STARTUP ========================
+// ======================== INITIALIZATION ========================
 
 function getLocalNetworkAddress() {
   const interfaces = os.networkInterfaces();
@@ -653,9 +770,49 @@ function getLocalNetworkAddress() {
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-server.listen(PORT, HOST, () => {
-  const networkAddress = getLocalNetworkAddress();
-  console.log(`
+// Migrate ENUM types for media support
+async function migrateMediaTypeEnum() {
+  try {
+    // Check if we need to update the ENUM type
+    const [results] = await sequelize.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_type t 
+        JOIN pg_enum e ON t.oid = e.enumtypid  
+        WHERE t.typname = 'enum_DirectMessages_mediaType' 
+        AND e.enumlabel = 'voice'
+      ) as has_voice;
+    `);
+    
+    if (!results[0].has_voice) {
+      console.log('📦 Migrating mediaType ENUM to include sticker, gif, voice...');
+      
+      // PostgreSQL requires special handling for ENUM changes
+      await sequelize.query(`
+        ALTER TYPE "enum_DirectMessages_mediaType" ADD VALUE IF NOT EXISTS 'sticker';
+        ALTER TYPE "enum_DirectMessages_mediaType" ADD VALUE IF NOT EXISTS 'gif';
+        ALTER TYPE "enum_DirectMessages_mediaType" ADD VALUE IF NOT EXISTS 'voice';
+      `);
+      
+      await sequelize.query(`
+        ALTER TYPE "enum_Messages_mediaType" ADD VALUE IF NOT EXISTS 'sticker';
+        ALTER TYPE "enum_Messages_mediaType" ADD VALUE IF NOT EXISTS 'gif';
+        ALTER TYPE "enum_Messages_mediaType" ADD VALUE IF NOT EXISTS 'voice';
+      `);
+      
+      console.log('✅ ENUM migration complete!');
+    } else {
+      console.log('✅ mediaType ENUM already up to date');
+    }
+  } catch (error) {
+    console.log('ℹ️  ENUM migration skipped (likely first run or different DB)');
+  }
+}
+
+sequelize.sync({ alter: true }).then(async () => {
+  await migrateMediaTypeEnum();
+  server.listen(PORT, HOST, () => {
+    const networkAddress = getLocalNetworkAddress();
+    console.log(`
 ╔═══════════════════════════════════════╗
 ║   🚀 Discord-Like Server Running     ║
 ║                                       ║
@@ -670,7 +827,12 @@ server.listen(PORT, HOST, () => {
 ║   ✓ Media Sharing                    ║
 ║   ✓ Shop System                      ║
 ║   ✓ Real-time Messaging              ║
+║   ✓ PostgreSQL Database              ║
 ║                                       ║
 ╚═══════════════════════════════════════╝
-  `);
-});      
+    `);
+  });
+}).catch(err => {
+  console.error('Database sync error:', err);
+  process.exit(1);
+});
