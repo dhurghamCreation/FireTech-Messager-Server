@@ -1047,6 +1047,8 @@ function updateMembersList(users) {
     users.forEach(user => {
         const item = document.createElement('div');
         item.className = 'member-item';
+        item.style.cursor = 'pointer';
+        item.title = `Click to view ${user.username}'s profile`;
 
         // Create avatar
         const avatar = document.createElement('div');
@@ -1064,6 +1066,15 @@ function updateMembersList(users) {
 
         const name = document.createElement('span');
         name.textContent = user.username;
+
+        // Make item clickable to view profile
+        item.onclick = () => {
+            if (user.id === currentUser.id) {
+                openProfile();
+            } else {
+                visitUserProfile(user.id, user.username);
+            }
+        };
 
         item.appendChild(avatar);
         item.appendChild(status);
@@ -1804,11 +1815,36 @@ function applySettingsToUI() {
 function openCommunitiesModal() {
     const modal = document.getElementById('communitiesModal');
     const list = document.getElementById('communitiesList');
-    list.innerHTML = `
-        <div class="friend-item"><span class="friend-name">🎮 Gaming</span><button class="buy-btn" onclick="joinCommunity('Gaming')">Join</button></div>
-        <div class="friend-item"><span class="friend-name">💻 Coding</span><button class="buy-btn" onclick="joinCommunity('Coding')">Join</button></div>
-        <div class="friend-item"><span class="friend-name">🎵 Music</span><button class="buy-btn" onclick="joinCommunity('Music')">Join</button></div>
-    `;
+    
+    // Show communities with better styling
+    const communities = [
+        { name: 'Gaming', emoji: '🎮', description: 'Talk about your favorite games' },
+        { name: 'Coding', emoji: '💻', description: 'Share code and learn together' },
+        { name: 'Music', emoji: '🎵', description: 'Discuss and share music' },
+        { name: 'Art', emoji: '🎨', description: 'Share your creative works' },
+        { name: 'Sports', emoji: '⚽', description: 'Sports fans unite' },
+        { name: 'Movies', emoji: '🎬', description: 'Film enthusiasts' }
+    ];
+    
+    list.innerHTML = communities.map(c => {
+        const isJoined = joinedCommunities.includes(c.name);
+        return `
+            <div class="friend-item" style="flex-direction: column; align-items: flex-start; padding: 16px;">
+                <div style="display: flex; width: 100%; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="friend-name" style="font-size: 16px;">${c.emoji} ${c.name}</span>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">${c.description}</div>
+                    </div>
+                    <button class="buy-btn" 
+                        onclick="${isJoined ? `openCommunityChat('${c.name}'); closeCommunitiesModal();` : `joinCommunity('${c.name}')`}" 
+                        style="${isJoined ? 'background: var(--success);' : ''}">
+                        ${isJoined ? 'Open' : 'Join'}
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
     modal.classList.remove('hidden');
 }
 
@@ -1819,11 +1855,35 @@ function closeCommunitiesModal() {
 function openGroupsModal() {
     const modal = document.getElementById('groupsModal');
     const list = document.getElementById('groupsList');
-    list.innerHTML = `
-        <div class="friend-item"><span class="friend-name">Study Group</span><button class="buy-btn" onclick="joinGroup('Study Group')">Join</button></div>
-        <div class="friend-item"><span class="friend-name">Project Team</span><button class="buy-btn" onclick="joinGroup('Project Team')">Join</button></div>
-        <div class="friend-item"><span class="friend-name">Family</span><button class="buy-btn" onclick="joinGroup('Family')">Join</button></div>
-    `;
+    
+    // Show groups with better styling
+    const groups = [
+        { name: 'Study Group', emoji: '📚', description: 'Study together and share notes' },
+        { name: 'Project Team', emoji: '💼', description: 'Collaborate on projects' },
+        { name: 'Family', emoji: '👨‍👩‍👧', description: 'Family group chat' },
+        { name: 'Friends', emoji: '🎉', description: 'Hang out with friends' },
+        { name: 'Work', emoji: '🏢', description: 'Work related discussions' }
+    ];
+    
+    list.innerHTML = groups.map(g => {
+        const isJoined = joinedGroups.includes(g.name);
+        return `
+            <div class="friend-item" style="flex-direction: column; align-items: flex-start; padding: 16px;">
+                <div style="display: flex; width: 100%; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="friend-name" style="font-size: 16px;">${g.emoji} ${g.name}</span>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">${g.description}</div>
+                    </div>
+                    <button class="buy-btn" 
+                        onclick="${isJoined ? `openGroupChat('${g.name}'); closeGroupsModal();` : `joinGroup('${g.name}')`}" 
+                        style="${isJoined ? 'background: var(--success);' : ''}">
+                        ${isJoined ? 'Open' : 'Join'}
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
     modal.classList.remove('hidden');
 }
 

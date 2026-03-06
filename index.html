@@ -1395,29 +1395,167 @@
             }
         }
 
+        /* ==================== MOBILE ADAPTIVE LAYOUT ==================== */
         @media (max-width: 768px) {
-            .main-container {
-                grid-template-columns: 72px 1fr;
+            body {
+                overflow: hidden;
             }
 
+            .main-container {
+                grid-template-columns: 60px 1fr;
+                height: 100vh;
+                height: 100dvh;
+                max-height: -webkit-fill-available;
+            }
+
+            /* Mobile Guild Sidebar */
+            .guild-sidebar {
+                padding: 4px 0;
+            }
+
+            .guild-item {
+                width: 48px;
+                height: 48px;
+                font-size: 20px;
+                margin-bottom: 6px;
+            }
+
+            .guild-divider {
+                width: 28px;
+                margin: 6px 0;
+            }
+
+            /* Mobile Channel Sidebar */
             .channel-sidebar {
                 display: none;
                 position: fixed;
-                left: 72px;
+                left: 0;
                 top: 0;
-                width: 240px;
+                width: 85%;
+                max-width: 320px;
                 height: 100%;
+                height: 100dvh;
                 z-index: 999;
+                box-shadow: 4px 0 20px rgba(0,0,0,0.5);
             }
 
             .channel-sidebar.show {
                 display: flex;
             }
 
+            /* Mobile overlay for sidebar */
+            .channel-sidebar.show::before {
+                content: '';
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0,0,0,0.5);
+                z-index: -1;
+            }
+
+            /* Mobile Chat Area */
+            .chat-area {
+                height: 100vh;
+                height: 100dvh;
+                max-height: -webkit-fill-available;
+            }
+
+            .chat-header {
+                padding: 12px 16px;
+                flex-shrink: 0;
+            }
+
+            .chat-header-title {
+                font-size: 16px;
+            }
+
+            .build-badge {
+                display: none;
+            }
+
+            .header-btn {
+                font-size: 16px;
+                padding: 8px;
+            }
+
+            .chat-header-actions {
+                gap: 4px;
+            }
+
+            /* Mobile Messages Container */
+            #messages-container {
+                flex: 1;
+                min-height: 0;
+                max-height: none;
+                padding: 12px 16px;
+                padding-bottom: 16px;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
+            }
+
+            .message {
+                gap: 8px;
+            }
+
+            .message-avatar {
+                width: 36px;
+                height: 36px;
+                font-size: 16px;
+            }
+
+            .message-username {
+                font-size: 14px;
+            }
+
+            .message-text {
+                font-size: 14px;
+            }
+
+            .message-media {
+                max-width: 90%;
+            }
+
+            /* Mobile Input Area */
+            .input-area {
+                padding: 12px 16px;
+                gap: 8px;
+                flex-shrink: 0;
+                border-top: 2px solid var(--border-color);
+            }
+
+            .input-area input {
+                font-size: 16px;
+                padding: 10px 14px;
+            }
+
+            .input-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+                flex-shrink: 0;
+            }
+
+            /* Mobile Scroll Rail */
+            .chat-scroll-rail {
+                right: 4px;
+                top: 64px;
+                bottom: 74px;
+                width: 12px;
+            }
+
+            .chat-scroll-thumb {
+                min-height: 40px;
+            }
+
+            /* Mobile Panels */
             .picker-panel {
-                width: 90%;
-                left: 5%;
-                bottom: 80px;
+                width: 100%;
+                left: 0;
+                bottom: 0;
+                height: 50vh;
+                border-radius: 16px 16px 0 0;
             }
 
             .voice-recorder {
@@ -1427,6 +1565,12 @@
                 bottom: 80px;
             }
 
+            .draft-preview {
+                margin: 8px 16px 0;
+                padding: 8px;
+            }
+
+            /* Mobile Settings Panel */
             .settings-panel {
                 width: 100%;
                 right: -100%;
@@ -1452,6 +1596,8 @@
                 white-space: nowrap;
                 border-left: none;
                 border-bottom: 3px solid transparent;
+                font-size: 13px;
+                padding: 10px 14px;
             }
 
             .settings-nav-item.active {
@@ -1459,6 +1605,7 @@
                 border-bottom-color: var(--primary-color);
             }
 
+            /* Mobile Toasts */
             .toast-container {
                 top: 10px;
                 right: 10px;
@@ -1467,6 +1614,17 @@
 
             .toast {
                 min-width: auto;
+                padding: 12px 16px;
+            }
+
+            /* Mobile Profile Panel */
+            .profile-panel {
+                width: 100%;
+            }
+
+            /* Hide members sidebar completely on mobile */
+            .members-sidebar {
+                display: none !important;
             }
         }
 
@@ -1937,7 +2095,7 @@
                     <button onclick="showArchivedChats()" title="Archived Chats" style="padding: 4px 8px; background: var(--secondary-color); border: none; border-radius: 4px; color: var(--text-primary); cursor: pointer; font-size: 12px;">
                         <i class="fas fa-archive"></i>
                     </button>
-                    <button onclick="toggleChannelSidebar()"><i class="fas fa-times"></i></button>
+                    <button onclick="toggleChannelSidebar()" class="danger-hover" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 20px; padding: 4px 8px;"><i class="fas fa-times"></i></button>
                 </div>
             </div>
             <div class="friend-search-container">
@@ -2381,6 +2539,7 @@
     </div>
 
     <!-- COMMUNITIES MODAL -->
+    <div class="modal hidden" id="communitiesModal">
         <div class="modal-content">
             <h2><i class="fas fa-globe"></i> Communities</h2>
             <p style="margin-top: 10px; color: var(--text-secondary);">Join public communities to discover people with shared interests.</p>
