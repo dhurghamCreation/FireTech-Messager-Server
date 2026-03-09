@@ -8,10 +8,22 @@ let currentChatFriendName = null;
 let currentChatContext = { type: 'none', id: null, name: null };
 let pendingMediaDraft = null;
 let pendingMediaDrafts = [];
+let activeCallState = null;
+let peerConnection = null;
+let localCallStream = null;
+let currentCallPeerId = null;
+let currentCallPeerName = null;
+let callTimerInterval = null;
+let callStartedAt = null;
+let incomingCallAudioContext = null;
+let incomingCallInterval = null;
+let activeRoomSubscription = null;
 let roomMessages = JSON.parse(localStorage.getItem('roomMessages') || '{}');
 let pinnedChats = [];
 let joinedCommunities = [];
 let joinedGroups = [];
+let communityProfiles = JSON.parse(localStorage.getItem('communityProfiles') || '{}');
+let groupProfiles = JSON.parse(localStorage.getItem('groupProfiles') || '{}');
 let chatSettings = {
     disappearTime: 0,
     enterToSend: true,
@@ -43,7 +55,92 @@ let themeSettings = {
     }
 };
 
-const API_BASE = '/api';
+// ==================== SERVER CONFIGURATION ====================
+// Always use same-origin backend so it works on Railway, custom domains, LAN IPs, and localhost.
+const SERVER_URL = window.location.origin;
+const API_BASE = SERVER_URL + '/api';
+
+console.log(`🌐 Connected to: ${SERVER_URL}`);
+
+async function syncBuildVersionBadge() {
+    try {
+        const badge = document.getElementById('buildVersionBadge');
+        if (!badge) return;
+
+        const response = await fetch(`${API_BASE}/version`, { cache: 'no-store' });
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (data?.version) {
+            badge.textContent = `v${data.version}`;
+            badge.title = `Running backend version: ${data.version}`;
+        }
+    } catch (error) {
+        // Keep fallback badge text if version endpoint is unavailable.
+    }
+}
+
+function startCallTimer() {
+    stopCallTimer();
+    callStartedAt = Date.now();
+    const timerLabel = document.getElementById('callTimerLabel');
+    if (!timerLabel) return;
+
+    callTimerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - callStartedAt) / 1000);
+        const hrs = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+        const mins = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+        const secs = String(elapsed % 60).padStart(2, '0');
+        timerLabel.textContent = `${hrs}:${mins}:${secs}`;
+    }, 1000);
+}
+
+function stopCallTimer() {
+    if (callTimerInterval) {
+        clearInterval(callTimerInterval);
+        callTimerInterval = null;
+    }
+    callStartedAt = null;
+}
+
+function startIncomingCallAlert() {
+    stopIncomingCallAlert();
+
+    if (navigator.vibrate) {
+        navigator.vibrate([300, 200, 300, 200, 300]);
+    }
+
+    incomingCallInterval = setInterval(() => {
+        try {
+            if (!incomingCallAudioContext) {
+                incomingCallAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            const osc = incomingCallAudioContext.createOscillator();
+            const gain = incomingCallAudioContext.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.value = 0.05;
+            osc.connect(gain);
+            gain.connect(incomingCallAudioContext.destination);
+            osc.start();
+            osc.stop(incomingCallAudioContext.currentTime + 0.15);
+        } catch (error) {
+            // Browser may block sound until user gesture; visual prompt still appears.
+        }
+    }, 900);
+}
+
+function stopIncomingCallAlert() {
+    if (incomingCallInterval) {
+        clearInterval(incomingCallInterval);
+        incomingCallInterval = null;
+    }
+
+    if (navigator.vibrate) {
+        navigator.vibrate(0);
+    }
+}
 
 // ==================== AUTH FUNCTIONS ====================
 
@@ -241,10 +338,16 @@ function switchAccount() {
 // ==================== SOCKET.IO CONNECTION ====================
 
 function connectSocket() {
-    socket = io();
+    socket = io(SERVER_URL, {
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 5,
+        transports: ['websocket', 'polling']
+    });
 
     socket.on('connect', () => {
-        console.log('Connected to server');
+        console.log('✅ Connected to server:', SERVER_URL);
         socket.emit('join', { token: currentToken });
     });
 
@@ -252,27 +355,115 @@ function connectSocket() {
         updateMembersList(users);
     });
 
+    socket.on('room chat history', (payload) => {
+        const roomType = payload?.roomType;
+        const roomName = payload?.roomName;
+        const roomKey = String(roomType) + ':' + String(roomName);
+        roomMessages[roomKey] = Array.isArray(payload?.messages) ? payload.messages : [];
+        saveRoomMessages();
+
+        const isCurrentRoom = currentChatContext?.type === roomType && String(currentChatContext?.name) === String(roomName);
+        if (isCurrentRoom) {
+            renderRoomMessages(roomKey, roomName, roomType);
+        }
+    });
+
+    socket.on('room message', (payload) => {
+        const roomType = payload?.roomType;
+        const roomName = payload?.roomName;
+        if (!roomType || !roomName) return;
+
+        const roomKey = String(roomType) + ':' + String(roomName);
+        if (!roomMessages[roomKey]) {
+            roomMessages[roomKey] = [];
+        }
+        roomMessages[roomKey].push(payload);
+        saveRoomMessages();
+
+        const isCurrentRoom = currentChatContext?.type === roomType && String(currentChatContext?.name) === String(roomName);
+        if (isCurrentRoom) {
+            // Only show if from someone else to avoid duplicates from optimistic updates
+            if (String(payload.from) !== String(currentUser.id)) {
+                addMessageToChat(payload);
+            }
+        } else if (payload.from !== currentUser.id && chatSettings.notifyOnReceived) {
+            // Show notification for room message when not in that room
+            const messagePreview = payload.mediaType === 'text' ? payload.content : `${payload.mediaType} message`;
+            const roomLabel = roomType === 'community' ? 'Community' : 'Group';
+            showToastClickable(
+                `New message in ${roomLabel} "${roomName}" from ${payload.fromUsername}: ${messagePreview}`,
+                'info',
+                { type: roomType, name: roomName }
+            );
+            playNotificationSound();
+        }
+    });
+
+    socket.on('room chat cleared', (payload) => {
+        const roomType = payload?.roomType;
+        const roomName = payload?.roomName;
+        if (!roomType || !roomName) return;
+
+        const roomKey = String(roomType) + ':' + String(roomName);
+        roomMessages[roomKey] = [];
+        saveRoomMessages();
+
+        const isCurrentRoom = currentChatContext?.type === roomType && String(currentChatContext?.name) === String(roomName);
+        if (isCurrentRoom) {
+            document.getElementById('messages-container').innerHTML = '';
+            refreshChatScrollbar();
+        }
+    });
+
+    socket.on('dm history cleared', (payload) => {
+        const fromUserId = payload?.fromUserId;
+        if (!fromUserId) return;
+
+        // If we're currently chatting with the user who cleared history, clear our UI too
+        if (currentChatContext?.type === 'dm' && String(currentChatContext?.id) === String(fromUserId)) {
+            document.getElementById('messages-container').innerHTML = '';
+            refreshChatScrollbar();
+            showToast('Chat history was cleared', 'info');
+        }
+    });
     socket.on('dm message', (data) => {
         const fromId = String(data.from);
         const toId = String(data.to);
         const myId = String(currentUser.id);
         const isSender = fromId === myId;
         const otherUserId = isSender ? toId : fromId;
-        const isCurrentChat = currentChatFriendId && String(currentChatFriendId) === String(otherUserId);
+        const isCurrentChat = (
+            currentChatContext.type === 'dm' &&
+            currentChatContext.id &&
+            String(currentChatContext.id) === String(otherUserId)
+        );
 
         if (isCurrentChat) {
-            addMessageToChat(data);
+            // Only add to chat if we're the receiver (to avoid duplicates from optimistic updates)
+            if (!isSender) {
+                addMessageToChat(data);
+            }
         }
 
         if (isSender && chatSettings.notifyOnSent) {
-            showToast('Message sent', 'success');
+            // Don't show toast for sent messages (already optimistically shown)
         }
 
         if (!isSender && chatSettings.notifyOnReceived) {
             const messagePreview = data.mediaType === 'text' ? data.content : `${data.mediaType} message`;
-            showToast(`New message from ${data.fromUsername}: ${messagePreview}`, 'warning');
+            showToastClickable(
+                `New message from ${data.fromUsername}: ${messagePreview}`, 
+                'info',
+                { type: 'dm', friendId: otherUserId, friendName: data.fromUsername }
+            );
             showDesktopNotification(`New message from ${data.fromUsername}`, messagePreview, false);
             playNotificationSound();
+        }
+    });
+
+    socket.on('dm delivery status', (data) => {
+        if (data && data.delivered === false) {
+            showToast('Message sent, but recipient is currently offline', 'warning');
         }
     });
 
@@ -286,9 +477,142 @@ function connectSocket() {
         hideTypingIndicator(data.username);
     });
 
+    socket.on('community user typing', (data) => {
+        // Display typing indicator for community chats
+        if (currentChatContext.type === 'community' && currentChatContext.name === data.community) {
+            showTypingIndicator(data.username);
+        }
+    });
+
+    socket.on('community user stop typing', (data) => {
+        if (currentChatContext.type === 'community' && currentChatContext.name === data.community) {
+            hideTypingIndicator();
+        }
+    });
+
+    socket.on('room user typing', (data) => {
+        // Display typing indicator for room/group chats
+        if ((currentChatContext.type === 'group' || currentChatContext.type === 'room') && String(currentChatContext.id) === String(data.roomId)) {
+            showTypingIndicator(data.username);
+        }
+    });
+
+    socket.on('room user stop typing', (data) => {
+        if ((currentChatContext.type === 'group' || currentChatContext.type === 'room') && String(currentChatContext.id) === String(data.roomId)) {
+            hideTypingIndicator();
+        }
+    });
+
     socket.on('error', (msg) => {
         console.error('Socket error:', msg);
         showToast(msg || 'Realtime error', 'error');
+    });
+
+    socket.on('friend request received', (payload) => {
+        const senderName = payload?.fromUsername || 'Someone';
+        showToast(`New friend request from ${senderName}`, 'warning');
+        if (document.getElementById('friendsModal') && !document.getElementById('friendsModal').classList.contains('hidden')) {
+            loadFriends();
+        }
+    });
+
+    socket.on('friend request accepted', (payload) => {
+        if (!currentUser) return;
+        if (String(payload?.fromId) === String(currentUser.id) || String(payload?.toId) === String(currentUser.id)) {
+            loadFriendsForDM();
+            if (document.getElementById('friendsModal') && !document.getElementById('friendsModal').classList.contains('hidden')) {
+                loadFriends();
+            }
+        }
+    });
+
+    socket.on('friend request rejected', (payload) => {
+        if (!currentUser) return;
+        if (String(payload?.fromId) === String(currentUser.id) || String(payload?.toId) === String(currentUser.id)) {
+            if (document.getElementById('friendsModal') && !document.getElementById('friendsModal').classList.contains('hidden')) {
+                loadFriends();
+            }
+        }
+    });
+
+    socket.on('incoming video call', (payload) => {
+        handleIncomingVideoCall(payload);
+    });
+
+    socket.on('video call ringing', (payload) => {
+        const targetName = currentChatContext?.name || 'user';
+        activeCallState = { callId: payload.callId, peerId: payload.toId, direction: 'outgoing' };
+        showToast(`Calling ${targetName}...`, 'success');
+    });
+
+    socket.on('video call accepted', (payload) => {
+        const byName = payload?.byUsername || 'User';
+        stopIncomingCallAlert();
+        showToast(`${byName} accepted the call`, 'success');
+        const peerId = activeCallState?.peerId || payload?.byUserId;
+        if (peerId) {
+            startCallSession(byName, peerId, true);
+        }
+    });
+
+    socket.on('video call rejected', (payload) => {
+        const byName = payload?.byUsername || 'User';
+        stopIncomingCallAlert();
+        showToast(`${byName} declined the call`, 'warning');
+        activeCallState = null;
+        closeCustomDialog();
+    });
+
+    socket.on('video call unavailable', () => {
+        stopIncomingCallAlert();
+        showToast('User is currently unavailable for calls', 'warning');
+        cleanupCallSession(false);
+    });
+
+    socket.on('video call ended', (payload) => {
+        const byName = payload?.byUsername || 'User';
+        stopIncomingCallAlert();
+        showToast(`Call ended by ${byName}`, 'warning');
+        cleanupCallSession(false);
+    });
+
+    socket.on('video signal', async (payload) => {
+        const signal = payload?.signal;
+        const fromId = payload?.fromId;
+        const fromName = payload?.fromUsername || 'User';
+
+        if (!signal || !fromId) return;
+
+        try {
+            if (signal.type === 'offer') {
+                if (!activeCallState) {
+                    activeCallState = { callId: payload?.callId || null, peerId: fromId, direction: 'incoming' };
+                }
+                if (!peerConnection) {
+                    await startCallSession(fromName, fromId, false);
+                }
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+
+                socket.emit('video signal', {
+                    toId: fromId,
+                    callId: activeCallState?.callId,
+                    signal: { type: 'answer', answer }
+                });
+            }
+
+            if (signal.type === 'answer' && peerConnection) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.answer));
+            }
+
+            if (signal.type === 'ice-candidate' && peerConnection && signal.candidate) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+        } catch (error) {
+            console.error('Video signaling error:', error);
+            showToast('Video call signaling failed', 'error');
+        }
     });
 }
 
@@ -313,6 +637,48 @@ function hideTypingIndicator() {
 function showMainApp() {
     document.getElementById('authContainer').style.display = 'none';
     document.getElementById('mainApp').classList.remove('hidden');
+    
+    // AGGRESSIVELY close all panels on startup (especially for mobile)
+    try {
+        // Close profile panel - multiple methods to ensure it stays closed
+        const profilePanel = document.getElementById('profilePanel');
+        if (profilePanel) {
+            profilePanel.classList.remove('show');
+            profilePanel.style.display = 'none';
+            profilePanel.style.visibility = 'hidden';
+            profilePanel.style.pointerEvents = 'none';
+            profilePanel.style.opacity = '0';
+            profilePanel.style.transform = 'translateX(500px)';
+        }
+        
+        // Close settings panel
+        const settingsPanel = document.getElementById('settingsPanel');
+        if (settingsPanel) {
+            settingsPanel.classList.remove('show');
+            settingsPanel.style.right = '-500px';
+        }
+        
+        // Close mobile members panel
+        const mobileMembersPanel = document.getElementById('mobileMembersPanel');
+        if (mobileMembersPanel) {
+            mobileMembersPanel.classList.remove('show');
+        }
+        
+        // Close sidebar overlay
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        if (sidebarOverlay) {
+            sidebarOverlay.classList.remove('show');
+        }
+        
+        // Close channel sidebar on mobile
+        const channelSidebar = document.getElementById('channelSidebar');
+        if (channelSidebar) {
+            channelSidebar.classList.remove('show');
+        }
+    } catch (e) {
+        console.log('Error closing panels:', e);
+    }
+    
     loadUserProfile();
     loadShopItems();
     
@@ -331,6 +697,9 @@ function showSection(section) {
         document.querySelector('.chat-area').style.display = 'flex';
         document.getElementById('friendsModal').classList.add('hidden');
         document.getElementById('shopModal').classList.add('hidden');
+        if (currentChatContext.type === 'community' || currentChatContext.type === 'group') {
+            subscribeToRoomChat(currentChatContext.type, currentChatContext.name);
+        }
         loadFriendsForDM();
     } else if (section === 'friends') {
         document.querySelector('.chat-area').style.display = 'none';
@@ -344,17 +713,24 @@ function showSection(section) {
 }
 
 function openDM(friendId, friendName) {
+    if (activeRoomSubscription && socket && socket.connected) {
+        socket.emit('leave room chat', activeRoomSubscription);
+    }
+    activeRoomSubscription = null;
     currentChatFriendId = friendId;
     currentChatFriendName = friendName;
     currentChatContext = { type: 'dm', id: friendId, name: friendName };
     clearPendingMediaDraft();
+    updatePinButtonState();
     
     // Check if chatting with self
-    const isSelfChat = friendId === currentUser.id;
+    const isSelfChat = String(friendId) === String(currentUser.id);
     const displayName = isSelfChat ? `📝 ${currentUser.username} (Notes)` : `💬 ${friendName}`;
     
     // Update UI
-    document.getElementById('chatTitle').textContent = displayName;
+    const chatTitleEl = document.getElementById('chatTitle');
+    chatTitleEl.textContent = displayName;
+    chatTitleEl.onclick = null;
     document.getElementById('messages-container').innerHTML = '';
     refreshChatScrollbar();
     
@@ -370,6 +746,11 @@ function openDM(friendId, friendName) {
     }
     
     showSection('chat');
+    
+    // Close mobile sidebar if open
+    if (window.innerWidth <= 480) {
+        closeMobileSidebar();
+    }
 }
 
 async function loadDMMessages(friendId) {
@@ -399,7 +780,13 @@ async function loadDMMessages(friendId) {
 }
 
 function toggleChannelSidebar() {
-    document.getElementById('channelSidebar').classList.toggle('show');
+    const sidebar = document.getElementById('channelSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    sidebar?.classList.toggle('show');
+    if (overlay) {
+        overlay.classList.toggle('show');
+    }
 }
 
 function openProfile() {
@@ -808,6 +1195,21 @@ async function sendMessage() {
                 connectSocket();
                 return;
             }
+            
+            // Optimistically display message immediately
+            const optimisticMessage = {
+                id: Date.now(),
+                from: currentUser.id,
+                fromUsername: currentUser.username,
+                fromAvatar: currentUser.avatar,
+                to: targetId,
+                content: content,
+                mediaType: 'text',
+                timestamp: new Date().toISOString()
+            };
+            addMessageToChat(optimisticMessage);
+            
+            // Send to server without waiting
             socket.emit('send dm', {
                 toUserId: targetId,
                 content: content,
@@ -926,8 +1328,32 @@ function addMessageToChat(data) {
     deleteBtn.innerHTML = '🗑️';
     deleteBtn.title = 'Delete';
     deleteBtn.onclick = () => deleteMessage(messageDiv.dataset.messageId, messageDiv);
+
+    const replyBtn = document.createElement('button');
+    replyBtn.className = 'message-action-btn';
+    replyBtn.innerHTML = '↩️';
+    replyBtn.title = 'Reply';
+    replyBtn.onclick = (e) => {
+        e.stopPropagation();
+        const input = document.getElementById('messageInput');
+        if (!input) return;
+        const previewText = (data.content || '').trim().slice(0, 40);
+        input.value = `@${data.fromUsername || 'user'} ${previewText ? `(${previewText}) ` : ''}`;
+        input.focus();
+    };
+
+    const pinChatBtn = document.createElement('button');
+    pinChatBtn.className = 'message-action-btn';
+    pinChatBtn.innerHTML = '📌';
+    pinChatBtn.title = 'Pin this chat';
+    pinChatBtn.onclick = (e) => {
+        e.stopPropagation();
+        togglePinCurrentChat();
+    };
     
     actions.appendChild(reactBtn);
+    actions.appendChild(replyBtn);
+    actions.appendChild(pinChatBtn);
     if (String(data.from) === String(currentUser?.id)) {
         actions.appendChild(editBtn);
         actions.appendChild(deleteBtn);
@@ -1089,6 +1515,12 @@ function updateMembersList(users) {
         item.appendChild(name);
         membersList.appendChild(item);
     });
+
+    // Also update mobile members list
+    const mobileMembersList = document.getElementById('mobileMembersList');
+    if (mobileMembersList) {
+        mobileMembersList.innerHTML = membersList.innerHTML;
+    }
 }
 
 // ==================== FILE UPLOAD ====================
@@ -1106,26 +1538,41 @@ async function handleFileUpload(event) {
         return;
     }
 
+    const targetId = currentChatContext.type === 'dm' ? ensureChatTarget() : null;
+    let sentCount = 0;
+
     for (const file of files) {
-        await new Promise((resolve) => {
+        // Read and send each media file immediately after selection.
+        // This removes the extra "press send" step and feels instant like WhatsApp.
+        const payload = await new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => {
                 const data = e.target.result;
                 const mediaType = file.type.startsWith('image') ? 'image' : 'video';
-                setPendingMediaDraft({
+                resolve({
+                    content: file.name || (mediaType === 'image' ? 'Photo' : 'Video'),
                     mediaType,
-                    mediaUrl: data,
-                    content: file.name || (mediaType === 'image' ? 'Photo' : 'Video')
+                    mediaUrl: data
                 });
-                resolve();
             };
-            reader.onerror = () => resolve();
+            reader.onerror = () => resolve(null);
             reader.readAsDataURL(file);
         });
+
+        if (!payload) continue;
+
+        if (currentChatContext.type === 'community' || currentChatContext.type === 'group') {
+            sendRoomMessage(payload);
+            sentCount += 1;
+        } else if (targetId) {
+            await sendStagedDm(targetId, payload);
+            sentCount += 1;
+        }
     }
 
-    const targetName = currentChatContext.name || currentChatFriendName || 'this chat';
-    showToast(`${files.length} media file(s) selected for ${targetName}. Press Send to post.`, 'success');
+    if (sentCount > 0) {
+        showToast(`Sent ${sentCount} media file(s)`, 'success');
+    }
 
     // Reset the input
     event.target.value = '';
@@ -1179,24 +1626,32 @@ async function loadFriendsForDM() {
         const channelsList = document.getElementById('channelsList');
         channelsList.innerHTML = '';
 
-        if (pinnedChats.length > 0) {
+        // Separate pinned and unpinned friends
+        const pinnedFriends = [];
+        const unpinnedFriends = [];
+        
+        friends.forEach(friend => {
+            const chatId = `dm:${friend.id}`;
+            if (pinnedChats.includes(chatId)) {
+                pinnedFriends.push(friend);
+            } else {
+                unpinnedFriends.push(friend);
+            }
+        });
+
+        // Show pinned section if there are pinned chats
+        if (pinnedFriends.length > 0) {
             const pinnedTitle = document.createElement('div');
             pinnedTitle.className = 'channel-section-title';
-            pinnedTitle.textContent = 'PINNED CHATS';
+            pinnedTitle.textContent = '📌 PINNED';
             channelsList.appendChild(pinnedTitle);
 
-            pinnedChats.forEach(chat => {
-                const pinnedItem = document.createElement('div');
-                pinnedItem.className = 'channel-item';
-                pinnedItem.innerHTML = `
-                    <div class="channel-avatar">📌</div>
-                    <span>${chat.name}</span>
-                `;
-                pinnedItem.onclick = () => openDM(chat.id, chat.name);
-                channelsList.appendChild(pinnedItem);
+            pinnedFriends.forEach(friend => {
+                createFriendChannelItem(friend, channelsList, true);
             });
         }
 
+        // Show communities if any
         if (joinedCommunities.length > 0) {
             const communitiesTitle = document.createElement('div');
             communitiesTitle.className = 'channel-section-title';
@@ -1204,11 +1659,20 @@ async function loadFriendsForDM() {
             channelsList.appendChild(communitiesTitle);
 
             joinedCommunities.forEach(community => {
+                const profile = getCommunityProfile(community);
+                const communityAvatar = profile.image
+                    ? `<div class="channel-avatar" style="background-image:url('${profile.image}'); background-size:cover; background-position:center;"></div>`
+                    : `<div class="channel-avatar">${profile.icon || '🌐'}</div>`;
                 const item = document.createElement('div');
+                const chatId = `community:${community}`;
                 item.className = 'channel-item';
+                if (pinnedChats.includes(chatId)) {
+                    item.classList.add('pinned');
+                }
                 item.innerHTML = `
-                    <div class="channel-avatar">🌐</div>
+                    ${communityAvatar}
                     <span>${community}</span>
+                    ${pinnedChats.includes(chatId) ? '<span class="pin-indicator"><i class="fas fa-thumbtack"></i></span>' : ''}
                 `;
                 item.style.cursor = 'pointer';
                 item.onclick = () => openCommunityChat(community);
@@ -1216,6 +1680,7 @@ async function loadFriendsForDM() {
             });
         }
 
+        // Show groups if any
         if (joinedGroups.length > 0) {
             const groupsTitle = document.createElement('div');
             groupsTitle.className = 'channel-section-title';
@@ -1223,11 +1688,20 @@ async function loadFriendsForDM() {
             channelsList.appendChild(groupsTitle);
 
             joinedGroups.forEach(group => {
+                const profile = getGroupProfile(group);
+                const groupAvatar = profile.image
+                    ? `<div class="channel-avatar" style="background-image:url('${profile.image}'); background-size:cover; background-position:center;"></div>`
+                    : `<div class="channel-avatar">${profile.icon || '👥'}</div>`;
                 const item = document.createElement('div');
+                const chatId = `group:${group}`;
                 item.className = 'channel-item';
+                if (pinnedChats.includes(chatId)) {
+                    item.classList.add('pinned');
+                }
                 item.innerHTML = `
-                    <div class="channel-avatar">👥</div>
+                    ${groupAvatar}
                     <span>${group}</span>
+                    ${pinnedChats.includes(chatId) ? '<span class="pin-indicator"><i class="fas fa-thumbtack"></i></span>' : ''}
                 `;
                 item.style.cursor = 'pointer';
                 item.onclick = () => openGroupChat(group);
@@ -1262,7 +1736,7 @@ async function loadFriendsForDM() {
         selfItem.onclick = () => openDM(currentUser.id, `${currentUser.username} (Notes)`);
         channelsList.appendChild(selfItem);
         
-        if (friends.length === 0) {
+        if (unpinnedFriends.length === 0 && pinnedFriends.length === 0) {
             const empty = document.createElement('div');
             empty.style.padding = '10px';
             empty.style.color = 'var(--text-secondary)';
@@ -1270,44 +1744,60 @@ async function loadFriendsForDM() {
             empty.textContent = 'No friends yet';
             channelsList.appendChild(empty);
         } else {
-            friends.forEach(friend => {
-                const item = document.createElement('div');
-                item.className = 'channel-item';
-                item.dataset.friendId = friend._id;
-                
-                // Create avatar
-                const avatar = document.createElement('div');
-                avatar.className = 'channel-avatar';
-                if (friend.avatar) {
-                    avatar.style.backgroundImage = `url(${friend.avatar})`;
-                    avatar.style.backgroundSize = 'cover';
-                    avatar.style.backgroundPosition = 'center';
-                } else {
-                    avatar.textContent = friend.username.charAt(0).toUpperCase();
-                }
-                
-                // Create text with status
-                const text = document.createElement('span');
-                const status = friend.status === 'online' ? '🟢' : '⚫';
-                text.textContent = `${status} ${friend.username}`;
-                
-                item.appendChild(avatar);
-                item.appendChild(text);
-                item.style.cursor = 'pointer';
-                item.onclick = () => openDM(friend._id, friend.username);
-                
-                // Add right-click context menu for profile
-                item.oncontextmenu = (e) => {
-                    e.preventDefault();
-                    showFriendContextMenu(e, friend._id, friend.username);
-                };
-                
-                channelsList.appendChild(item);
+            unpinnedFriends.forEach(friend => {
+                createFriendChannelItem(friend, channelsList, false);
             });
         }
     } catch (error) {
         console.error('Failed to load friends for DM:', error);
     }
+}
+
+function createFriendChannelItem(friend, container, isPinned) {
+    const item = document.createElement('div');
+    item.className = 'channel-item';
+    item.dataset.friendId = friend.id;
+    
+    if (isPinned) {
+        item.classList.add('pinned');
+    }
+    
+    // Create avatar
+    const avatar = document.createElement('div');
+    avatar.className = 'channel-avatar';
+    if (friend.avatar) {
+        avatar.style.backgroundImage = `url(${friend.avatar})`;
+        avatar.style.backgroundSize = 'cover';
+        avatar.style.backgroundPosition = 'center';
+    } else {
+        avatar.textContent = friend.username.charAt(0).toUpperCase();
+    }
+    
+    // Create text with status
+    const text = document.createElement('span');
+    const status = friend.status === 'online' ? '🟢' : '⚫';
+    text.textContent = `${status} ${friend.username}`;
+    
+    item.appendChild(avatar);
+    item.appendChild(text);
+    
+    if (isPinned) {
+        const pinIndicator = document.createElement('span');
+        pinIndicator.className = 'pin-indicator';
+        pinIndicator.innerHTML = '<i class="fas fa-thumbtack"></i>';
+        item.appendChild(pinIndicator);
+    }
+    
+    item.style.cursor = 'pointer';
+    item.onclick = () => openDM(friend.id, friend.username);
+    
+    // Add right-click context menu for profile
+    item.oncontextmenu = (e) => {
+        e.preventDefault();
+        showFriendContextMenu(e, friend.id, friend.username);
+    };
+    
+    container.appendChild(item);
 }
 
 async function loadFriends() {
@@ -1323,19 +1813,40 @@ async function loadFriends() {
 
         const requestsDiv = document.getElementById('friendRequests');
         requestsDiv.innerHTML = '';
-        if (requests.length === 0) {
+        const latestRequestsBySender = new Map();
+        requests.forEach((req) => {
+            const senderId = req?.from?.id ?? `request-${req?.id}`;
+            const prev = latestRequestsBySender.get(senderId);
+            if (!prev || Number(req.id) > Number(prev.id)) {
+                latestRequestsBySender.set(senderId, req);
+            }
+        });
+
+        const normalizedRequests = Array.from(latestRequestsBySender.values())
+            .sort((a, b) => Number(b.id) - Number(a.id));
+
+        if (normalizedRequests.length === 0) {
             requestsDiv.innerHTML = '<p style="color: var(--text-secondary);">No pending requests</p>';
         }
-        requests.forEach(req => {
+        normalizedRequests.forEach((req) => {
             const item = document.createElement('div');
             item.className = 'friend-item';
+            item.style.display = 'flex';
+            item.style.justifyContent = 'space-between';
+            item.style.alignItems = 'center';
+            item.style.gap = '10px';
+            item.style.padding = '12px';
+            item.style.borderRadius = '10px';
+            item.style.border = '1px solid var(--border-color)';
+            item.style.background = 'rgba(255,255,255,0.02)';
             item.innerHTML = `
-                <div>
+                <div style="flex: 1; cursor: pointer;" onclick="visitUserProfile('${req.from.id}', '${req.from.username}')">
                     <div class="friend-name">${req.from.username}</div>
-                    <div class="friend-status">pending</div>
+                    <div class="friend-status">Pending request</div>
                 </div>
-                <div>
-                    <button onclick="acceptFriendRequest('${req._id}')" class="buy-btn">Accept</button>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="acceptFriendRequest('${req.id}')" class="buy-btn">Accept</button>
+                    <button onclick="rejectFriendRequest('${req.id}')" class="buy-btn" style="background: var(--danger);">Decline</button>
                 </div>
             `;
             requestsDiv.appendChild(item);
@@ -1352,10 +1863,11 @@ async function loadFriends() {
             item.style.cursor = 'pointer';
             const status = friend.status === 'online' ? '🟢 Online' : '⚫ Offline';
             item.innerHTML = `
-                <div onclick="openDM('${friend._id}', '${friend.username}')">
+                <div onclick="openDM('${friend.id}', '${friend.username}')" style="flex: 1;">
                     <div class="friend-name">${friend.username}</div>
                     <div class="friend-status">${status}</div>
                 </div>
+                <div onclick="event.stopPropagation(); visitUserProfile('${friend.id}', '${friend.username}')" style="padding: 8px 12px; background: var(--primary-color); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 12px; font-weight: 600;">👤 Profile</div>
             `;
             friendsList.appendChild(item);
         });
@@ -1375,12 +1887,18 @@ async function acceptFriendRequest(requestId) {
             body: JSON.stringify({ requestId })
         });
 
-        if (response.ok) {
-            showToast('Friend request accepted!');
-            loadFriends();
+        const data = await response.json();
+        if (!response.ok) {
+            showToast(data.error || 'Failed to accept friend request', 'error');
+            return;
         }
+
+        showToast('Friend request accepted!');
+        loadFriends();
+        loadFriendsForDM();
     } catch (error) {
         console.error(error);
+        showToast('Could not accept friend request', 'error');
     }
 }
 
@@ -1414,7 +1932,15 @@ async function loadShopItems() {
         const response = await fetch(`${API_BASE}/shop`, {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-        const items = await response.json();
+        const apiItems = await response.json();
+        const items = Array.isArray(apiItems) && apiItems.length > 0 ? apiItems : [
+            { id: 'fallback_banner_neon', name: 'Neon Banner Effect', description: 'Animated neon gradient banner for your profile.', price: 450, category: 'Banners' },
+            { id: 'fallback_badge_founder', name: 'Founder Badge', description: 'Exclusive badge shown next to your username.', price: 320, category: 'Badges' },
+            { id: 'fallback_color_pack', name: 'Color Burst Pack', description: 'Unlock 12 vibrant accent color themes.', price: 380, category: 'Themes' },
+            { id: 'fallback_chat_fx', name: 'Message Glow FX', description: 'Subtle glow animation for your sent messages.', price: 260, category: 'Effects' },
+            { id: 'fallback_avatar_ring', name: 'Aura Avatar Ring', description: 'Premium animated ring around your avatar.', price: 520, category: 'Avatar' },
+            { id: 'fallback_nameplate', name: 'Crystal Nameplate', description: 'Polished nameplate style in member list.', price: 410, category: 'Nameplates' }
+        ];
 
         const shopList = document.getElementById('shopList');
         shopList.innerHTML = '';
@@ -1426,13 +1952,16 @@ async function loadShopItems() {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'shop-item';
                 itemDiv.innerHTML = `
-                    <div>
-                        <div class="shop-item-name">${item.name}</div>
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div class="shop-item-name">${item.name}</div>
+                            <span style="font-size: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(88,101,242,0.15); color: var(--primary-color); border: 1px solid rgba(88,101,242,0.4);">${item.category || 'Premium'}</span>
+                        </div>
                         <div style="font-size: 12px; color: var(--text-secondary);">${item.description}</div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span class="shop-item-price">${item.price} 💰</span>
-                        <button onclick="buyItem('${item._id}')" class="buy-btn">Buy</button>
+                        <button onclick="buyItem('${item.id}')" class="buy-btn">Buy</button>
                     </div>
                 `;
                 shopList.appendChild(itemDiv);
@@ -1489,11 +2018,14 @@ async function loadInventory() {
         inventory.forEach(item => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'shop-item';
+            itemDiv.style.cursor = 'pointer';
             itemDiv.innerHTML = `
                 <div>
                     <div class="shop-item-name">${item.itemId.name}</div>
-                    <div style="font-size: 12px; color: var(--text-secondary);">Qty: ${item.quantity}</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">${item.itemId.description}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Qty: ${item.quantity}</div>
                 </div>
+                <button onclick="applyShopItem('${item.itemId.id}', '${item.itemId.category}')" class="buy-btn" style="background: var(--primary-color);">Use</button>
             `;
             inventoryList.appendChild(itemDiv);
         });
@@ -1501,6 +2033,91 @@ async function loadInventory() {
         console.error('Failed to load inventory:', error);
     }
 }
+
+function applyShopItem(itemId, category) {
+    const effectsMap = {
+        'Banners': () => {
+            document.documentElement.style.setProperty('--primary-color', '#00d4ff');
+            document.documentElement.style.setProperty('--primary-hover', '#00b8e6');
+            showToast('✨ Banner effect applied! Your profile now has a neon glow.', 'success');
+        },
+        'Badges': () => {
+            showToast('🏆 Badge equipped! It now appears next to your name.', 'success');
+            // Badge would be stored in user profile and shown in messages
+        },
+        'Themes': () => {
+            const colors = ['#ff6b9d', '#c44569', '#4a69bd', '#6a89cc', '#60a3bc', '#78e08f', '#f6b93b', '#e55039'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            document.documentElement.style.setProperty('--primary-color', randomColor);
+            document.documentElement.style.setProperty('--primary-hover', randomColor + 'dd');
+            showToast('🎨 Theme applied! Your accent color has changed.', 'success');
+        },
+        'Effects': () => {
+            // Message glow effect
+            const style = document.createElement('style');
+            style.id = 'message-glow-effect';
+            style.textContent = `
+                .message[data-sender="${currentUser.id}"] .message-content {
+                    animation: messageGlow 2s ease-in-out infinite;
+                }
+                @keyframes messageGlow {
+                    0%, 100% { box-shadow: 0 0 5px rgba(88, 101, 242, 0.3); }
+                    50% { box-shadow: 0 0 20px rgba(88, 101, 242, 0.6); }
+                }
+            `;
+            const existing = document.getElementById('message-glow-effect');
+            if (existing) existing.remove();
+            document.head.appendChild(style);
+            showToast('✨ Message glow effect activated!', 'success');
+        },
+        'Avatar': () => {
+            const style = document.createElement('style');
+            style.id = 'avatar-aura-effect';
+            style.textContent = `
+                .message-avatar {
+                    position: relative;
+                    animation: avatarPulse 3s ease-in-out infinite;
+                }
+                @keyframes avatarPulse {
+                    0%, 100% { box-shadow: 0 0 0 0 rgba(88, 101, 242, 0.4); }
+                    50% { box-shadow: 0 0 0 8px rgba(88, 101, 242, 0); }
+                }
+            `;
+            const existing = document.getElementById('avatar-aura-effect');
+            if (existing) existing.remove();
+            document.head.appendChild(style);
+            showToast('🌟 Avatar aura effect activated!', 'success');
+        },
+        'Nameplates': () => {
+            const style = document.createElement('style');
+            style.id = 'nameplate-effect';
+            style.textContent = `
+                .message-username {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                    font-weight: 700;
+                }
+            `;
+            const existing = document.getElementById('nameplate-effect');
+            if (existing) existing.remove();
+            document.head.appendChild(style);
+            showToast('💎 Crystal nameplate effect activated!', 'success');
+        },
+        'Emotes': () => {
+            showToast('😎 Special emotes unlocked! Use them in your messages.', 'success');
+        }
+    };
+
+    const applyEffect = effectsMap[category];
+    if (applyEffect) {
+        applyEffect();
+    } else {
+        showToast('Effect applied!', 'success');
+    }
+}
+
 
 // ==================== TOAST NOTIFICATIONS ====================
 
@@ -1614,11 +2231,17 @@ function loadTheme() {
 // ==================== CLOSE CHAT ====================
 
 function closeCurrentChat() {
+    if (activeRoomSubscription && socket && socket.connected) {
+        socket.emit('leave room chat', activeRoomSubscription);
+    }
+    activeRoomSubscription = null;
     currentChatFriendId = null;
     currentChatFriendName = null;
     currentChatContext = { type: 'none', id: null, name: null };
     clearPendingMediaDraft();
-    document.getElementById('chatTitle').textContent = '💬 Select a friend to chat';
+    const chatTitleEl = document.getElementById('chatTitle');
+    chatTitleEl.textContent = '💬 Select a friend to chat';
+    chatTitleEl.onclick = null;
     document.getElementById('messages-container').innerHTML = '';
     document.getElementById('closeChatBtn').style.display = 'none';
     refreshChatScrollbar();
@@ -1689,21 +2312,32 @@ function sendRoomMessage(payload) {
         return;
     }
 
-    console.log('📤 Sending room message:', payload);
+    if (!socket || !socket.connected) {
+        showToast('Connection lost. Reconnecting...', 'warning');
+        connectSocket();
+        return;
+    }
 
-    const roomMessage = {
+    // Optimistically display message immediately
+    const optimisticMessage = {
+        id: Date.now(),
         from: currentUser.id,
         fromUsername: currentUser.username,
-        fromAvatar: currentUser.avatar || null,
+        fromAvatar: currentUser.avatar,
         content: payload.content,
         mediaType: payload.mediaType,
         mediaUrl: payload.mediaUrl || null,
         timestamp: new Date().toISOString()
     };
+    addMessageToChat(optimisticMessage);
 
-    console.log('📨 Room message to add:', roomMessage);
-    addRoomMessage(roomKey, roomMessage);
-    addMessageToChat(roomMessage);
+    socket.emit('send room message', {
+        roomType: currentChatContext.type,
+        roomName: currentChatContext.name,
+        content: payload.content,
+        mediaType: payload.mediaType,
+        mediaUrl: payload.mediaUrl || null
+    });
 }
 
 function ensureChatTarget() {
@@ -1836,18 +2470,22 @@ function openCommunitiesModal() {
     
     list.innerHTML = communities.map(c => {
         const isJoined = joinedCommunities.includes(c.name);
+        const profile = getCommunityProfile(c.name);
         return `
             <div class="friend-item" style="flex-direction: column; align-items: flex-start; padding: 16px;">
                 <div style="display: flex; width: 100%; justify-content: space-between; align-items: center;">
                     <div>
-                        <span class="friend-name" style="font-size: 16px;">${c.emoji} ${c.name}</span>
+                        <span class="friend-name" style="font-size: 16px;">${profile.icon || c.emoji} ${c.name}</span>
                         <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">${c.description}</div>
                     </div>
-                    <button class="buy-btn" 
-                        onclick="${isJoined ? `openCommunityChat('${c.name}'); closeCommunitiesModal();` : `joinCommunity('${c.name}')`}" 
-                        style="${isJoined ? 'background: var(--success);' : ''}">
-                        ${isJoined ? 'Open' : 'Join'}
-                    </button>
+                    <div style="display:flex; gap:6px;">
+                        ${isJoined ? `<button class="buy-btn" onclick="openCommunityDetails('${c.name}')" style="background: var(--secondary-color);">Details</button>` : ''}
+                        <button class="buy-btn" 
+                            onclick="${isJoined ? `openCommunityChat('${c.name}'); closeCommunitiesModal();` : `joinCommunity('${c.name}')`}" 
+                            style="${isJoined ? 'background: var(--success);' : ''}">
+                            ${isJoined ? 'Open' : 'Join'}
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -1875,12 +2513,19 @@ function openGroupsModal() {
     
     list.innerHTML = groups.map(g => {
         const isJoined = joinedGroups.includes(g.name);
+        const profile = getGroupProfile(g.name);
+        const avatarHtml = profile.image
+            ? `<div class="channel-avatar" style="background-image:url('${profile.image}'); background-size:cover; background-position:center;"></div>`
+            : `<div class="channel-avatar">${profile.icon || g.emoji}</div>`;
         return `
             <div class="friend-item" style="flex-direction: column; align-items: flex-start; padding: 16px;">
                 <div style="display: flex; width: 100%; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span class="friend-name" style="font-size: 16px;">${g.emoji} ${g.name}</span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        ${avatarHtml}
+                        <div>
+                        <span class="friend-name" style="font-size: 16px;">${g.name}</span>
                         <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">${g.description}</div>
+                        </div>
                     </div>
                     <button class="buy-btn" 
                         onclick="${isJoined ? `openGroupChat('${g.name}'); closeGroupsModal();` : `joinGroup('${g.name}')`}" 
@@ -1899,28 +2544,59 @@ function closeGroupsModal() {
     document.getElementById('groupsModal').classList.add('hidden');
 }
 
+function subscribeToRoomChat(roomType, roomName) {
+    if (!socket || !socket.connected) return;
+
+    if (activeRoomSubscription) {
+        socket.emit('leave room chat', activeRoomSubscription);
+    }
+
+    activeRoomSubscription = { roomType, roomName };
+    socket.emit('join room chat', { roomType, roomName });
+}
+
 function openCommunityChat(name) {
     console.log('🌐 Opening community chat:', name);
+    const profile = getCommunityProfile(name);
     currentChatFriendId = null;
     currentChatFriendName = `Community: ${name}`;
     currentChatContext = { type: 'community', id: name, name };
     clearPendingMediaDraft();
-    document.getElementById('chatTitle').textContent = `🌐 Community: ${name}`;
+    updatePinButtonState();
+    const chatTitleEl = document.getElementById('chatTitle');
+    chatTitleEl.textContent = `${profile.icon || '🌐'} Community: ${name}`;
+    chatTitleEl.onclick = () => openCommunityDetails(name);
     renderRoomMessages(`community:${name}`, name, 'community');
+    subscribeToRoomChat('community', name);
     document.getElementById('closeChatBtn').style.display = 'block';
     showSection('chat');
+    
+    // Close mobile sidebar if open
+    if (window.innerWidth <= 480) {
+        closeMobileSidebar();
+    }
 }
 
 function openGroupChat(name) {
     console.log('👥 Opening group chat:', name);
+    const profile = getGroupProfile(name);
     currentChatFriendId = null;
     currentChatFriendName = `Group: ${name}`;
     currentChatContext = { type: 'group', id: name, name };
     clearPendingMediaDraft();
-    document.getElementById('chatTitle').textContent = `👥 Group: ${name}`;
+    updatePinButtonState();
+    const chatTitleEl = document.getElementById('chatTitle');
+    chatTitleEl.textContent = `${profile.icon || '👥'} Group: ${name}`;
+    chatTitleEl.onclick = null;
     renderRoomMessages(`group:${name}`, name, 'group');
+    subscribeToRoomChat('group', name);
     document.getElementById('closeChatBtn').style.display = 'block';
     showSection('chat');
+    
+    // Close mobile sidebar if open
+    if (window.innerWidth <= 480) {
+        closeMobileSidebar();
+    }
 }
 
 function joinCommunity(name) {
@@ -1928,6 +2604,20 @@ function joinCommunity(name) {
         showToast('Already joined this community', 'warning');
         return;
     }
+
+    const profile = getCommunityProfile(name);
+    const alreadyMember = (profile.members || []).some((m) => String(m.id) === String(currentUser?.id));
+    if (!alreadyMember) {
+        profile.members = profile.members || [];
+        profile.members.push({
+            id: currentUser?.id,
+            username: currentUser?.username || 'You',
+            role: profile.members.length === 0 ? 'leader' : 'member'
+        });
+        communityProfiles[name] = profile;
+        localStorage.setItem('communityProfiles', JSON.stringify(communityProfiles));
+    }
+
     joinedCommunities.push(name);
     localStorage.setItem('joinedCommunities', JSON.stringify(joinedCommunities));
     loadFriendsForDM();
@@ -1939,6 +2629,7 @@ function joinGroup(name) {
         showToast('Already joined this group', 'warning');
         return;
     }
+    getGroupProfile(name);
     joinedGroups.push(name);
     localStorage.setItem('joinedGroups', JSON.stringify(joinedGroups));
     loadFriendsForDM();
@@ -2945,10 +3636,15 @@ function startVideoCall() {
         showToast('❌ Please open a chat first', 'warning');
         return;
     }
+
+    if (currentChatContext.type !== 'dm') {
+        showToast('Video calls are currently available for direct chats only', 'warning');
+        return;
+    }
     
     const targetName = currentChatContext.name || 'User';
     const targetId = currentChatContext.id;
-    const callType = currentChatContext.type === 'group' ? 'Group Call' : 'Video Call';
+    const callType = 'Video Call';
     
     // Open video call modal
     openVideoCallModal(targetName, targetId, callType);
@@ -2978,6 +3674,14 @@ function toggleArchiveChat() {
         // Archive
         archivedChats.push({ id: chatId, name: chatName, type: chatType });
         showToast(`${chatName} archived`, 'success');
+        // PERMANENTLY REMOVE from chat list to prevent return
+        if (chatType === 'dm') {
+            const friendIndex = friends.findIndex(f => f.id === chatId);
+            if (friendIndex > -1) {
+                friends.splice(friendIndex, 1);
+                localStorage.setItem('friends', JSON.stringify(friends));
+            }
+        }
         closeCurrentChat();
     }
     
@@ -2987,16 +3691,63 @@ function toggleArchiveChat() {
 
 function showArchivedChats() {
     if (archivedChats.length === 0) {
-        showToast('No archived chats', 'warning');
+        showToast('No archived chats yet', 'warning');
         return;
     }
     
-    let message = 'Archived Chats:<br><br>';
-    archivedChats.forEach((chat, idx) => {
-        message += `${idx + 1}. <strong>${chat.name}</strong> (${chat.type})<br>`;
-    });
+    const chatsHtml = archivedChats.map((chat, idx) => {
+        const icon = chat.type === 'dm' ? '👤' : chat.type === 'community' ? '🌐' : '👥';
+        return `
+            <div style="padding: 12px; background: var(--bg-color); border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border-color);" 
+                 onclick="openArchivedChat('${chat.type}', '${chat.id}', '${String(chat.name).replace(/'/g, "\\'")}'); closeCustomDialog();"
+                 onmouseover="this.style.background='var(--sidebar-bg)'; this.style.borderColor='var(--primary-color)';"
+                 onmouseout="this.style.background='var(--bg-color)'; this.style.borderColor='var(--border-color)';">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 24px;">${icon}</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 14px;">${chat.name}</div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">${chat.type === 'dm' ? 'Direct Message' : chat.type === 'community' ? 'Community' : 'Group Chat'}</div>
+                    </div>
+                    <button onclick="event.stopPropagation(); unarchiveChat('${chat.type}', '${chat.id}');" style="padding: 6px 12px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Unarchive</button>
+                </div>
+            </div>
+        `;
+    }).join('');
     
-    customAlert(message, '📦 Archived Chats', '📦');
+    const html = `
+        <div style="max-width: 500px;">
+            <p style="margin-bottom: 16px; color: var(--text-secondary); font-size: 13px;">Click on a chat to open it, or unarchive to move it back to your main chat list.</p>
+            <div style="max-height: 400px; overflow-y: auto;">
+                ${chatsHtml}
+            </div>
+            <button class="secondary-btn" onclick="closeCustomDialog()" style="width: 100%; margin-top: 12px;">Close</button>
+        </div>
+    `;
+    
+    customAlert(html, '📦 Archived Chats', '📦');
+}
+
+function openArchivedChat(type, id, name) {
+    if (type === 'dm') {
+        openDM(id, name);
+    } else if (type === 'community') {
+        openCommunityChat(name);
+    } else if (type === 'group') {
+        openGroupChat(name);
+    }
+}
+
+function unarchiveChat(type, id) {
+    const index = archivedChats.findIndex(c => c.type === type && c.id === id);
+    if (index > -1) {
+        const chat = archivedChats[index];
+        archivedChats.splice(index, 1);
+        localStorage.setItem('archivedChats', JSON.stringify(archivedChats));
+        showToast(`${chat.name} unarchived`, 'success');
+        loadFriendsForDM();
+        closeCustomDialog();
+        showArchivedChats(); // Refresh the archived chats modal
+    }
 }
 
 // ==================== STATISTICS & QUIZZES ====================
@@ -3059,23 +3810,47 @@ function showUserStats() {
 
 function startQuiz() {
     const quizzes = [
-        { q: 'What year is it?', a: '2026', type: 'year' },
-        { q: 'How many reaction types exist?', a: '6', type: 'reactions' },
-        { q: 'Can you archive chats?', a: 'yes', type: 'features' },
-        { q: 'What is the max emoji size for stickers?', a: '96', type: 'size' },
+        { q: 'What year is it?', a: '2026', type: 'year', coins: 50 },
+        { q: 'How many reaction types exist?', a: '6', type: 'reactions', coins: 50 },
+        { q: 'Can you archive chats?', a: 'yes', type: 'features', coins: 50 },
+        { q: 'What is the max emoji size for stickers?', a: '96', type: 'size', coins: 50 },
     ];
     
     const quiz = quizzes[Math.floor(Math.random() * quizzes.length)];
     
     customPrompt(quiz.q, '🎯 Quiz Time!', 'Your answer...', '', '🎯').then(answer => {
         if (answer && answer.toLowerCase().trim() === quiz.a.toLowerCase()) {
-            showToast('✅ Correct! +1 point!', 'success');
+            showToast(`✅ Correct! +${quiz.coins} 💰 Coins!`, 'success');
             updateUserStats('quizCorrect', 1);
+            addCoins(quiz.coins);
             updateStatsDisplay();
+            updateUserProfile();
         } else if (answer !== null) {
             showToast(`❌ Wrong! Answer was: ${quiz.a}`, 'error');
         }
     });
+}
+
+function addCoins(amount) {
+    const userJSON = localStorage.getItem('user');
+    if (!userJSON) return;
+    const user = JSON.parse(userJSON);
+    user.coins = (user.coins || 0) + amount;
+    localStorage.setItem('user', JSON.stringify(user));
+    currentUser.coins = user.coins;
+    const coinsDisplay = document.getElementById('coinsDisplay');
+    if (coinsDisplay) coinsDisplay.textContent = `💰 Coins: ${user.coins}`;
+}
+
+function updateUserProfile() {
+    if (!currentUser) return;
+    const userJSON = localStorage.getItem('user');
+    if (userJSON) {
+        const user = JSON.parse(userJSON);
+        currentUser = user;
+        const coinsDisplay = document.getElementById('coinsDisplay');
+        if (coinsDisplay) coinsDisplay.textContent = `💰 Coins: ${user.coins || 0}`;
+    }
 }
 
 function updateStatsDisplay() {
@@ -3107,6 +3882,449 @@ function resetUserStats() {
     });
 }
 
+// ==================== MOBILE NAVIGATION ====================
+function showMobileSection(section) {
+    // Keep one panel visible at a time on phones.
+    if (window.innerWidth <= 768) {
+        closeMobileSidebar();
+        closeSettings();
+        closeProfile();
+        closeCommunitiesModal();
+        closeGroupsModal();
+    }
+
+    // Update active state on nav items
+    document.querySelectorAll('.mobile-nav-item').forEach(item => {
+        if (item.getAttribute('data-section') === section) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+
+    // Handle different sections
+    switch(section) {
+        case 'chats':
+            toggleChannelSidebar();
+            break;
+        case 'communities':
+            openCommunitiesModal();
+            break;
+        case 'groups':
+            openGroupsModal();
+            break;
+        case 'friends':
+            showSection('friends');
+            break;
+        case 'settings':
+            openSettings();
+            break;
+    }
+}
+
+function closeMobileSidebar() {
+    document.getElementById('channelSidebar')?.classList.remove('show');
+    document.getElementById('mobileMembersPanel')?.classList.remove('show');
+    document.getElementById('sidebarOverlay')?.classList.remove('show');
+}
+
+function openQuickActionsMenu() {
+    const extraActions = [];
+    if (currentChatContext?.type && currentChatContext.type !== 'none') {
+        extraActions.push('<button class="secondary-btn" onclick="clearCurrentChatHistory(); closeCustomDialog();">🧹 Clear Current Chat</button>');
+        if (currentChatContext.type === 'group') {
+            extraActions.push('<button class="secondary-btn" onclick="changeGroupImagePrompt(currentChatContext.name); closeCustomDialog();">🖼️ Change Group Image</button>');
+        }
+        if (currentChatContext.type === 'community') {
+            extraActions.push('<button class="secondary-btn" onclick="changeCommunityImagePrompt(currentChatContext.name); closeCustomDialog();">🖼️ Change Community Image</button>');
+        }
+    }
+
+    const html = `
+        <div style="display:grid; gap:10px; min-width:260px;">
+            <button class="secondary-btn" onclick="showQRCodeModal(); closeCustomDialog();">📱 My QR Code</button>
+            <button class="secondary-btn" onclick="scanQRCodeForFriend(); closeCustomDialog();">📷 Scan QR</button>
+            <button class="save-btn" onclick="openArchivedChatsFromQuickActions();">📦 Archived Chats</button>
+            ${extraActions.join('')}
+            <button class="secondary-btn" onclick="openSettings(); closeCustomDialog();">⚙️ Settings</button>
+            <button class="secondary-btn" onclick="openProfile(); closeCustomDialog();">👤 Profile</button>
+            <button class="secondary-btn" onclick="toggleArchiveChat(); closeCustomDialog();">🗂️ Archive Current Chat</button>
+            <button class="save-btn" style="background: var(--danger);" onclick="logout(); closeCustomDialog();">🚪 Logout</button>
+        </div>
+    `;
+    customAlert(html, 'Quick Actions', '📱');
+}
+
+function showQuickActionsMenu() {
+    openQuickActionsMenu();
+}
+
+function openArchivedChatsFromQuickActions() {
+    closeCustomDialog();
+    setTimeout(() => showArchivedChats(), 40);
+}
+
+function toggleMobileMembers() {
+    const panel = document.getElementById('mobileMembersPanel');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (!panel) return;
+    
+    const isShowing = panel.classList.contains('show');
+    
+    if (isShowing) {
+        panel.classList.remove('show');
+        if (overlay) overlay.classList.remove('show');
+    } else {
+        panel.classList.add('show');
+        if (overlay) overlay.classList.add('show');
+        updateMobileMembersList();
+    }
+}
+
+function updateMobileMembersList() {
+    const mobileList = document.getElementById('mobileMembersList');
+    const desktopList = document.getElementById('membersList');
+    if (!mobileList || !desktopList) return;
+    
+    // Copy the desktop members list to mobile
+    mobileList.innerHTML = desktopList.innerHTML;
+}
+
+function getCommunityProfile(name) {
+    if (!communityProfiles[name]) {
+        communityProfiles[name] = {
+            name,
+            icon: '🌐',
+            image: '',
+            members: [
+                {
+                    id: currentUser?.id || `u-${Date.now()}`,
+                    username: currentUser?.username || 'You',
+                    role: 'leader'
+                }
+            ]
+        };
+        localStorage.setItem('communityProfiles', JSON.stringify(communityProfiles));
+    }
+    return communityProfiles[name];
+}
+
+function getGroupProfile(name) {
+    if (!groupProfiles[name]) {
+        groupProfiles[name] = {
+            name,
+            icon: '👥',
+            image: ''
+        };
+        localStorage.setItem('groupProfiles', JSON.stringify(groupProfiles));
+    }
+    return groupProfiles[name];
+}
+
+function openCommunityDetails(name) {
+    const profile = getCommunityProfile(name);
+    const modal = document.getElementById('communityDetailsModal');
+    const title = document.getElementById('communityDetailsTitle');
+    const body = document.getElementById('communityDetailsBody');
+    if (!modal || !title || !body) return;
+
+    title.textContent = `${profile.icon} ${profile.name}`;
+    const members = Array.isArray(profile.members) ? profile.members : [];
+    body.innerHTML = `
+        <div style="display:grid; gap:12px; margin-bottom:14px;">
+            <button class="secondary-btn" onclick="renameCommunityPrompt('${name}')">✏️ Rename Community</button>
+            <button class="secondary-btn" onclick="changeCommunityIconPrompt('${name}')">🖼️ Change Icon</button>
+            <button class="secondary-btn" onclick="changeCommunityImagePrompt('${name}')">🖼️ Upload Cover Image</button>
+            <div style="font-size:12px; color:var(--text-secondary);">Tap member cards to open profile. Leaders can manage community metadata here.</div>
+        </div>
+        <div style="font-weight:700; margin-bottom:8px;">Members (${members.length})</div>
+        ${members.map((m) => `
+            <div class="community-member-card" onclick="visitUserProfile('${m.id}', '${String(m.username).replace(/'/g, "\\'")}')">
+                <div class="member-avatar">${String(m.username || 'U').charAt(0).toUpperCase()}</div>
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                    <span style="font-weight:600;">${m.username}</span>
+                    <span style="font-size:12px; color:var(--text-secondary);">View full profile</span>
+                </div>
+                <span class="community-role-pill ${m.role === 'leader' ? 'leader' : ''}">${m.role === 'leader' ? 'Leader' : 'Member'}</span>
+            </div>
+        `).join('')}
+    `;
+
+    modal.classList.add('show');
+}
+
+function closeCommunityDetails() {
+    document.getElementById('communityDetailsModal')?.classList.remove('show');
+}
+
+function renameCommunityPrompt(name) {
+    customPrompt('Enter new community name', 'Rename Community', name, '', '✏️').then((newName) => {
+        if (!newName || !newName.trim() || newName.trim() === name) return;
+        const trimmed = newName.trim();
+
+        const idx = joinedCommunities.indexOf(name);
+        if (idx >= 0) {
+            joinedCommunities[idx] = trimmed;
+            localStorage.setItem('joinedCommunities', JSON.stringify(joinedCommunities));
+        }
+
+        if (communityProfiles[name]) {
+            communityProfiles[trimmed] = { ...communityProfiles[name], name: trimmed };
+            delete communityProfiles[name];
+            localStorage.setItem('communityProfiles', JSON.stringify(communityProfiles));
+        }
+
+        if (currentChatContext.type === 'community' && currentChatContext.name === name) {
+            openCommunityChat(trimmed);
+        }
+
+        loadFriendsForDM();
+        closeCommunityDetails();
+        showToast('Community renamed', 'success');
+    });
+}
+
+function changeCommunityIconPrompt(name) {
+    const commonIcons = ['🌐', '💎', '🎮', '🎨', '🎵', '📚', '⚽', '🍕', '🚀', '💻', '🎯', '🏆', '🎬', '🌟', '❤️', '🔥'];
+    const iconsHtml = commonIcons.map(icon => 
+        `<button onclick="setCommunityIcon('${name}', '${icon}')" style="font-size: 32px; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; background: var(--bg-color); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.1)'; this.style.borderColor='var(--primary-color)';" onmouseout="this.style.transform='scale(1)'; this.style.borderColor='var(--border-color)';">${icon}</button>`
+    ).join('');
+    
+    const html = `
+        <div style="max-width: 400px;">
+            <p style="margin-bottom: 16px; color: var(--text-secondary); font-size: 14px;">Choose an icon for your community: "${name}"</p>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;">
+                ${iconsHtml}
+            </div>
+            <div style="text-align: center; padding: 12px; background: var(--bg-color); border-radius: 6px; margin-bottom: 12px;">
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 6px;">Or paste any emoji:</div>
+                <input type="text" id="customIconInput" placeholder="Paste emoji here..." style="width: 100%; padding: 10px; background: var(--chat-bg); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 24px; text-align: center;" maxlength="2">
+                <button class="save-btn" onclick="setCommunityIconFromInput('${name}')" style="margin-top: 8px; width: 100%;">Set Custom Icon</button>
+            </div>
+            <button class="secondary-btn" onclick="closeCustomDialog()" style="width: 100%;">Cancel</button>
+        </div>
+    `;
+    customAlert(html, 'Change Community Icon', '🖼️');
+}
+
+function setCommunityIcon(name, icon) {
+    const profile = getCommunityProfile(name);
+    profile.icon = icon;
+    communityProfiles[name] = profile;
+    localStorage.setItem('communityProfiles', JSON.stringify(communityProfiles));
+    closeCustomDialog();
+    openCommunityDetails(name);
+    if (currentChatContext.type === 'community' && currentChatContext.name === name) {
+        document.getElementById('chatTitle').textContent = `${profile.icon} Community: ${name}`;
+    }
+    loadFriendsForDM(); // Refresh chat list to show new icon
+    showToast('Community icon updated! 🎉', 'success');
+}
+
+function setCommunityIconFromInput(name) {
+    const input = document.getElementById('customIconInput');
+    if (!input || !input.value.trim()) {
+        showToast('Please enter an emoji', 'warning');
+        return;
+    }
+    setCommunityIcon(name, input.value.trim().slice(0, 2));
+}
+
+function changeCommunityImagePrompt(name) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const profile = getCommunityProfile(name);
+            profile.image = reader.result;
+            communityProfiles[name] = profile;
+            localStorage.setItem('communityProfiles', JSON.stringify(communityProfiles));
+            
+            // IMMEDIATELY update profile panel
+            if (currentChatContext?.type === 'community' && currentChatContext?.name === name) {
+                const profileAvatar = document.getElementById('profileAvatar');
+                if (profileAvatar) {
+                    profileAvatar.style.backgroundImage = `url(${reader.result})`;
+                    profileAvatar.style.backgroundSize = 'cover';
+                    profileAvatar.style.backgroundPosition = 'center';
+                    profileAvatar.textContent = '';
+                }
+                const profileName = document.getElementById('profileName');
+                if (profileName) {
+                    profileName.textContent = name;
+                }
+                // Force re-render profile to ensure image persists
+                setTimeout(() => {
+                    const avatarDiv = document.getElementById('profileAvatar');
+                    if (avatarDiv && !avatarDiv.style.backgroundImage) {
+                        avatarDiv.style.backgroundImage = `url(${reader.result})`;
+                        avatarDiv.style.backgroundSize = 'cover';
+                    }
+                }, 100);
+            }
+            
+            loadFriendsForDM();
+            showToast('Community image updated (Profile updated)', 'success');
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
+function changeGroupImagePrompt(name) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const profile = getGroupProfile(name);
+            profile.image = reader.result;
+            groupProfiles[name] = profile;
+            localStorage.setItem('groupProfiles', JSON.stringify(groupProfiles));
+            
+            // IMMEDIATELY update profile panel
+            if (currentChatContext?.type === 'group' && currentChatContext?.name === name) {
+                const profileAvatar = document.getElementById('profileAvatar');
+                if (profileAvatar) {
+                    profileAvatar.style.backgroundImage = `url(${reader.result})`;
+                    profileAvatar.style.backgroundSize = 'cover';
+                    profileAvatar.style.backgroundPosition = 'center';
+                    profileAvatar.textContent = '';
+                }
+                const profileName = document.getElementById('profileName');
+                if (profileName) {
+                    profileName.textContent = name;
+                }
+                // Force re-render profile to ensure image persists
+                setTimeout(() => {
+                    const avatarDiv = document.getElementById('profileAvatar');
+                    if (avatarDiv && !avatarDiv.style.backgroundImage) {
+                        avatarDiv.style.backgroundImage = `url(${reader.result})`;
+                        avatarDiv.style.backgroundSize = 'cover';
+                    }
+                }, 100);
+            }
+            
+            loadFriendsForDM();
+            showToast('Group image updated (Profile updated)', 'success');
+        };
+        reader.readAsDataURL(file);
+    };
+    input.click();
+}
+
+// Update toggleChannelSidebar to work with overlay
+function toggleChannelSidebarEnhanced() {
+    const sidebar = document.getElementById('channelSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    sidebar?.classList.toggle('show');
+    overlay?.classList.toggle('show');
+}
+
+// ==================== PINNED CHATS ====================
+function togglePinCurrentChat() {
+    if (!currentChatContext || currentChatContext.type === 'none') {
+        showToast('No chat selected', 'warning');
+        return;
+    }
+
+    const chatId = `${currentChatContext.type}:${currentChatContext.id || currentChatContext.name}`;
+    const index = pinnedChats.indexOf(chatId);
+    
+    if (index > -1) {
+        // Unpin
+        pinnedChats.splice(index, 1);
+        showToast('Chat unpinned', 'success');
+    } else {
+        // Pin
+        pinnedChats.push(chatId);
+        showToast('Chat pinned to top', 'success');
+    }
+    
+    localStorage.setItem('pinnedChats', JSON.stringify(pinnedChats));
+    updatePinButtonState();
+    loadFriendsForDM(); // Refresh the chat list to show pinned at top
+}
+
+function updatePinButtonState() {
+    const pinBtn = document.getElementById('pinChatBtn');
+    if (!pinBtn || !currentChatContext || currentChatContext.type === 'none') return;
+    
+    const chatId = `${currentChatContext.type}:${currentChatContext.id || currentChatContext.name}`;
+    const isPinned = pinnedChats.includes(chatId);
+    
+    pinBtn.innerHTML = isPinned ? '<i class="fas fa-thumbtack" style="color: var(--primary-color);"></i>' : '<i class="fas fa-thumbtack"></i>';
+    pinBtn.title = isPinned ? 'Unpin chat' : 'Pin chat';
+}
+
+function isChatPinned(chatType, chatId) {
+    const chatKey = `${chatType}:${chatId}`;
+    return pinnedChats.includes(chatKey);
+}
+
+// ==================== CLICKABLE NOTIFICATIONS ====================
+function showToastClickable(message, type = 'success', chatContext = null) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type} ${chatContext ? 'clickable' : ''}`;
+
+    const iconMap = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+
+    toast.innerHTML = `
+        <div class="toast-icon">${iconMap[type] || iconMap.info}</div>
+        <div class="toast-content">
+            <div class="toast-title">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+            <div class="toast-message">${message}</div>
+            ${chatContext ? '<div style="font-size: 11px; margin-top: 4px; color: var(--primary-color);">Click to open</div>' : ''}
+        </div>
+    `;
+
+    if (chatContext) {
+        toast.style.cursor = 'pointer';
+        toast.addEventListener('click', () => {
+            // Navigate to chat
+            if (chatContext.type === 'dm') {
+                openDM(chatContext.friendId, chatContext.friendName);
+            } else if (chatContext.type === 'community') {
+                openRoomChat('community', chatContext.name);
+            } else if (chatContext.type === 'group') {
+                openRoomChat('group', chatContext.name);
+            }
+            
+            // Remove the notification
+            toast.remove();
+            
+            // Close any open modals/sidebars on mobile
+            if (window.innerWidth <= 480) {
+                closeMobileSidebar();
+            }
+        });
+    }
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 5000);
+}
+
 // ==================== INITIALIZATION ====================
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -3123,6 +4341,30 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('autoplayGifs')?.addEventListener('change', saveChatSettings);
     document.getElementById('compactMode')?.addEventListener('change', saveAppearanceSettings);
 
+    // Add typing notification support for communities and rooms
+    let typingTimeout = null;
+    const typingInput = document.getElementById('messageInput');
+    if (typingInput) {
+        typingInput.addEventListener('input', () => {
+            if (!chatSettings.showTypingIndicator) return;
+            
+            // Emit typing event for current chat context
+            if (currentChatContext.type === 'community' && currentChatContext.name) {
+                socket?.emit('community typing', { community: currentChatContext.name, username: currentUser?.username });
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    socket?.emit('community stop typing', { community: currentChatContext.name, username: currentUser?.username });
+                }, 2000);
+            } else if ((currentChatContext.type === 'group' || currentChatContext.type === 'room') && currentChatContext.id) {
+                socket?.emit('room typing', { roomType: 'group', roomId: currentChatContext.id, roomName: currentChatContext.name, username: currentUser?.username });
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    socket?.emit('room stop typing', { roomType: 'group', roomId: currentChatContext.id, roomName: currentChatContext.name, username: currentUser?.username });
+                }, 2000);
+            }
+        });
+    }
+
     const messagesContainer = document.getElementById('messages-container');
     const scrollRail = document.getElementById('chatScrollRail');
     const scrollThumb = document.getElementById('chatScrollThumb');
@@ -3135,6 +4377,20 @@ window.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', refreshChatScrollbar);
     setTimeout(refreshChatScrollbar, 120);
 
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            document.getElementById('pickerPanel')?.classList.remove('show');
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        const picker = document.getElementById('pickerPanel');
+        if (!picker || !picker.classList.contains('show')) return;
+        if (picker.contains(event.target)) return;
+        if (event.target.closest('[onclick="togglePicker()"]')) return;
+        picker.classList.remove('show');
+    });
+
     // Load audio and theme settings
     loadAudioSettings();
     loadThemeSettings();
@@ -3142,6 +4398,8 @@ window.addEventListener('DOMContentLoaded', () => {
     updateStatsDisplay();
 
     // Check for existing token
+    syncBuildVersionBadge();
+
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
 
@@ -3163,6 +4421,7 @@ function customAlert(message, title = 'Notice', icon = 'ℹ️') {
         dialog.innerHTML = `
             <div class="custom-dialog">
                 <div class="custom-dialog-content">
+                    <button class="custom-dialog-close" onclick="closeCustomDialog()" style="position: absolute; top: 10px; right: 10px; background: transparent; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary); padding: 5px 10px; line-height: 1;">&times;</button>
                     <div class="custom-dialog-header">
                         <div class="custom-dialog-icon">${icon}</div>
                         <div class="custom-dialog-title">${title}</div>
@@ -3188,6 +4447,7 @@ function customConfirm(message, title = 'Confirm', icon = '❓', isDanger = fals
         dialog.innerHTML = `
             <div class="custom-dialog">
                 <div class="custom-dialog-content">
+                    <button class="custom-dialog-close" onclick="resolveCustomDialog(false)" style="position: absolute; top: 10px; right: 10px; background: transparent; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary); padding: 5px 10px; line-height: 1;">&times;</button>
                     <div class="custom-dialog-header">
                         <div class="custom-dialog-icon">${icon}</div>
                         <div class="custom-dialog-title">${title}</div>
@@ -3231,11 +4491,13 @@ function customPrompt(message, title = 'Input', placeholder = '', defaultValue =
 }
 
 function closeCustomDialog() {
+    stopIncomingCallAlert();
     document.getElementById('customDialog').style.display = 'none';
     if (window.customDialogResolve) window.customDialogResolve(true);
 }
 
 function resolveCustomDialog(value) {
+    stopIncomingCallAlert();
     document.getElementById('customDialog').style.display = 'none';
     if (window.customDialogResolve) window.customDialogResolve(value);
 }
@@ -3396,7 +4658,7 @@ function openVideoCallModal(targetName, targetId, callType) {
             <p style="margin: 20px 0; color: var(--text-secondary); font-size: 14px; font-style: italic;">🔊 Ringing...</p>
             <div style="margin-top: 30px; padding: 15px; background: rgba(88, 101, 242, 0.1); border-radius: 8px; border: 1px solid var(--primary-color);">
                 <p style="color: var(--text-secondary); font-size: 13px; margin: 0;">💡 <strong>Video Call Ready!</strong></p>
-                <p style="color: var(--text-secondary); font-size: 12px; margin: 8px 0 0 0;">Full WebRTC integration will enable live video/audio streaming</p>
+                <p style="color: var(--text-secondary); font-size: 12px; margin: 8px 0 0 0;">Waiting for the other user to accept...</p>
             </div>
             <button onclick="closeCustomDialog();" style="margin-top: 20px; padding: 12px 30px; background: var(--danger); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
                 ❌ End Call
@@ -3419,7 +4681,350 @@ function openVideoCallModal(targetName, targetId, callType) {
             type: currentChatContext.type || 'dm',
             targetName: targetName
         });
+        activeCallState = { callId: null, peerId: targetId, direction: 'outgoing' };
         showToast(`📞 Calling ${targetName}...`, 'success');
+    }
+}
+
+function handleIncomingVideoCall(payload) {
+    if (!payload || !payload.callId) return;
+
+    const callerName = payload.fromUsername || 'Unknown User';
+    activeCallState = { callId: payload.callId, peerId: payload.fromId, direction: 'incoming' };
+    startIncomingCallAlert();
+
+    customConfirm(
+        `${callerName} is calling you. Accept this video call?`,
+        'Incoming Video Call',
+        '📞',
+        false
+    ).then((accepted) => {
+        if (!socket || !socket.connected || !activeCallState) {
+            stopIncomingCallAlert();
+            return;
+        }
+
+        if (accepted) {
+            stopIncomingCallAlert();
+            socket.emit('accept video call', {
+                callId: activeCallState.callId,
+                toId: activeCallState.peerId
+            });
+            // Wait for caller offer to arrive, then start peer session from signaling handler.
+        } else {
+            stopIncomingCallAlert();
+            socket.emit('reject video call', {
+                callId: activeCallState.callId,
+                toId: activeCallState.peerId
+            });
+            showToast(`Missed call from ${callerName}`, 'warning');
+            activeCallState = null;
+        }
+    });
+}
+
+async function ensureLocalCallStream() {
+    if (localCallStream) return localCallStream;
+    try {
+        const selectedMic = audioSettings?.microphoneId;
+        const constraints = {
+            audio: {
+                deviceId: selectedMic && selectedMic !== 'default' ? { exact: selectedMic } : undefined,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            },
+            video: {
+                facingMode: 'user',
+                width: { ideal: 720 },
+                height: { ideal: 480 }
+            }
+        };
+        localCallStream = await navigator.mediaDevices.getUserMedia(constraints);
+        showToast('📹 Camera and microphone enabled', 'success');
+        return localCallStream;
+    } catch (error) {
+        console.error('Media access error:', error);
+
+        // Retry with safe defaults if selected device is unavailable.
+        try {
+            localCallStream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: { facingMode: 'user' }
+            });
+            showToast('📹 Camera and microphone enabled (default devices)', 'success');
+            return localCallStream;
+        } catch (fallbackError) {
+            showToast(`❌ Cannot access camera/mic: ${fallbackError.message}`, 'error');
+            throw fallbackError;
+        }
+    }
+}
+
+function createPeerConnection(peerId) {
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+
+    peerConnection = new RTCPeerConnection({
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            // Public TURN servers for better mobile connectivity
+            {
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:openrelay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            }
+        ],
+        iceCandidatePoolSize: 10
+    });
+
+    if (localCallStream) {
+        localCallStream.getTracks().forEach((track) => {
+            peerConnection.addTrack(track, localCallStream);
+        });
+    }
+
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate && socket && socket.connected) {
+            socket.emit('video signal', {
+                toId: peerId,
+                callId: activeCallState?.callId,
+                signal: { type: 'ice-candidate', candidate: event.candidate }
+            });
+        }
+    };
+
+    peerConnection.ontrack = (event) => {
+        console.log('📞 Remote track received:', event.track.kind, event.streams.length);
+        const remoteVideo = document.getElementById('remoteCallVideo');
+        if (remoteVideo && event.streams[0]) {
+            remoteVideo.srcObject = event.streams[0];
+            
+            // CRITICAL: Ensure audio is enabled
+            remoteVideo.muted = false;
+            remoteVideo.volume = 1.0;
+            
+            // Apply selected speaker if supported
+            if (audioSettings.speakerId && audioSettings.speakerId !== 'default' && typeof remoteVideo.setSinkId === 'function') {
+                remoteVideo.setSinkId(audioSettings.speakerId).catch((sinkError) => {
+                    console.warn('Could not apply selected speaker for call:', sinkError);
+                });
+            }
+            
+            // Force play with user interaction handling
+            const playPromise = remoteVideo.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log('✅ Remote video/audio playing successfully');
+                    showToast('📞 Connected! Audio should be working now', 'success');
+                }).catch((error) => {
+                    console.error('Remote video play error:', error);
+                    // Try auto-playing after a short delay
+                    setTimeout(() => {
+                        remoteVideo.play().catch(e => console.error('Retry play failed:', e));
+                    }, 500);
+                });
+            }
+        }
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+        console.log('📡 Connection state:', peerConnection.connectionState);
+        
+        // If user intentionally ended call, don't show error messages
+        if (window.userIntentionallEndedCall) {
+            console.log('User ended call intentionally, skipping error messages');
+            return;
+        }
+        
+        // Clear any existing disconnect timeout
+        if (window.callDisconnectTimeout) {
+            clearTimeout(window.callDisconnectTimeout);
+            window.callDisconnectTimeout = null;
+        }
+        
+        if (peerConnection.connectionState === 'connecting') {
+            showToast('📞 Connecting call...', 'info');
+            // Start timer immediately when connecting begins
+            if (!callTimerInterval) {
+                startCallTimer();
+            }
+        } else if (peerConnection.connectionState === 'disconnected') {
+            showToast('⚠️ Connection unstable, trying to reconnect...', 'warning');
+            // Give more time for mobile networks to reconnect
+            window.callDisconnectTimeout = setTimeout(() => {
+                if (peerConnection && peerConnection.connectionState === 'disconnected' && !window.userIntentionallEndedCall) {
+                    showToast('Call ended due to connection loss', 'error');
+                    cleanupCallSession(false);
+                }
+            }, 15000); // 15 seconds grace period for mobile networks
+        } else if (peerConnection.connectionState === 'connected') {
+            showToast('📞 Call connected!', 'success');
+            // Ensure timer is running
+            if (!callTimerInterval) {
+                startCallTimer();
+            }
+        } else if (peerConnection.connectionState === 'failed') {
+            showToast('Network issue detected, trying to recover call...', 'warning');
+            peerConnection.restartIce?.();
+            window.callDisconnectTimeout = setTimeout(() => {
+                if (peerConnection && peerConnection.connectionState === 'failed' && !window.userIntentionallEndedCall) {
+                    showToast('Call ended after network failure', 'error');
+                    cleanupCallSession(false);
+                }
+            }, 12000);
+        } else if (peerConnection.connectionState === 'closed') {
+            // Don't show toast for normal closure (user hung up)
+            cleanupCallSession(false);
+        }
+    };
+
+    peerConnection.oniceconnectionstatechange = () => {
+        if (!peerConnection) return;
+        console.log('ICE connection state:', peerConnection.iceConnectionState);
+
+        if (peerConnection.iceConnectionState === 'failed') {
+            // Try ICE restart before ending the call.
+            peerConnection.restartIce?.();
+        }
+    };
+}
+
+function openCallDialog(peerName) {
+    const isMobile = window.innerWidth <= 768;
+    const html = `
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: ${isMobile ? '100%' : '400px'}; ${isMobile ? 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: 100vw; background: #000; border-radius: 0;' : ''} ">
+            <h3 style="margin: 0; text-align: center; color: var(--text-primary); font-size: ${isMobile ? '14px' : '16px'}; ${isMobile ? 'position: absolute; top: 10px; left: 10px; right: 10px; z-index: 10;' : ''}">📞 Video Call with ${peerName}</h3>
+            <div style="text-align: center; font-size: ${isMobile ? '12px' : '14px'}; color: var(--success); font-weight: 700; letter-spacing: 0.5px; ${isMobile ? 'position: absolute; top: 40px; left: 10px; right: 10px; z-index: 10;' : ''}">Call time: <span id="callTimerLabel">00:00:00</span></div>
+            <div style="display: grid; gap: ${isMobile ? '0' : '8px'}; grid-template-columns: 1fr; ${isMobile ? 'flex: 1; position: relative; width: 100%; height: 100%;' : ''}">
+                <video id="remoteCallVideo" autoplay playsinline style="width: 100%; ${isMobile ? 'height: 100%; position: absolute; top: 0; left: 0;' : 'height: 240px;'} border-radius: ${isMobile ? '0' : '10px'}; background: #000; object-fit: cover;"></video>
+                <video id="localCallVideo" autoplay muted playsinline style="width: ${isMobile ? '100px' : '100%'}; ${isMobile ? 'height: 120px; position: absolute; bottom: 80px; right: 10px; z-index: 5; border: 2px solid white;' : 'height: 140px;'} border-radius: ${isMobile ? '8px' : '10px'}; background: #000; object-fit: cover;"></video>
+            </div>
+            <div style="display: flex; justify-content: center; gap: 12px; ${isMobile ? 'position: absolute; bottom: 20px; left: 10px; right: 10px; z-index: 10;' : ''}">
+                <button onclick="endVideoCall()" style="padding: 10px 20px; background: var(--danger); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; flex: 1;">🔴 End Call</button>
+                <button onclick="toggleLocalMute()" style="padding: 10px 20px; background: var(--secondary); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; flex: 1;" id="muteBtn">🔇 Mute</button>
+            </div>
+        </div>
+    `;
+
+    customAlert(html, isMobile ? '' : 'Live Video Call', '📹');
+}
+
+async function startCallSession(peerName, peerId, isCaller) {
+    if (peerConnection && currentCallPeerId && String(currentCallPeerId) === String(peerId)) {
+        return;
+    }
+
+    currentCallPeerId = peerId;
+    currentCallPeerName = peerName;
+
+    openCallDialog(peerName);
+    await ensureLocalCallStream();
+
+    const localVideo = document.getElementById('localCallVideo');
+    if (localVideo) {
+        localVideo.srcObject = localCallStream;
+        localVideo.play().catch(() => {});
+    }
+
+    createPeerConnection(peerId);
+
+    if (isCaller && peerConnection) {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('video signal', {
+            toId: peerId,
+            callId: activeCallState?.callId,
+            signal: { type: 'offer', offer }
+        });
+    }
+}
+
+function endVideoCall() {
+    // Mark that user intentionally ended the call (prevents timeout errors)
+    window.userIntentionallEndedCall = true;
+    
+    // Clear any disconnect timeout immediately
+    if (window.callDisconnectTimeout) {
+        clearTimeout(window.callDisconnectTimeout);
+        window.callDisconnectTimeout = null;
+    }
+    
+    if (socket && socket.connected && currentCallPeerId) {
+        socket.emit('end video call', {
+            callId: activeCallState?.callId,
+            toId: currentCallPeerId
+        });
+    }
+
+    cleanupCallSession(false);
+}
+
+function toggleLocalMute() {
+    if (!localCallStream) return;
+    
+    const audioTracks = localCallStream.getAudioTracks();
+    const currentlyEnabled = audioTracks.some(track => track.enabled);
+    
+    audioTracks.forEach(track => {
+        track.enabled = !currentlyEnabled;
+    });
+    
+    const btn = document.getElementById('muteBtn');
+    if (btn) {
+        const nowMuted = currentlyEnabled;
+        btn.textContent = nowMuted ? '🎤 Unmute' : '🔇 Mute';
+        btn.style.background = nowMuted ? 'var(--danger)' : 'var(--secondary)';
+    }
+    
+    showToast(currentlyEnabled ? '🔇 Microphone muted' : '🎤 Microphone on', 'info');
+}
+
+function cleanupCallSession(keepDialogOpen = false) {
+    // Reset the user intention flag so next call works normally
+    window.userIntentionallEndedCall = false;
+    
+    // Clear any pending disconnect timeout
+    if (window.callDisconnectTimeout) {
+        clearTimeout(window.callDisconnectTimeout);
+        window.callDisconnectTimeout = null;
+    }
+    
+    stopIncomingCallAlert();
+    stopCallTimer();
+
+    if (peerConnection) {
+        peerConnection.onicecandidate = null;
+        peerConnection.ontrack = null;
+        peerConnection.close();
+        peerConnection = null;
+    }
+
+    if (localCallStream) {
+        localCallStream.getTracks().forEach((track) => track.stop());
+        localCallStream = null;
+    }
+
+    currentCallPeerId = null;
+    currentCallPeerName = null;
+    activeCallState = null;
+
+    if (!keepDialogOpen) {
+        closeCustomDialog();
     }
 }
 
@@ -3592,9 +5197,120 @@ function archiveSingleMessage(messageId, messageDiv) {
 }
 
 function showArchivedMessages() {
-    customAlert(
-        `You have ${archivedMessages.length} archived messages.<br><br>Check the Archived tab to view them.`,
-        '📦 Archived Messages',
-        '📦'
-    );
+    const sections = [];
+    sections.push(`<div style="font-size:13px; color: var(--text-secondary); margin-bottom: 12px;">Archived chats: <strong>${archivedChats.length}</strong> | Archived single messages: <strong>${archivedMessages.length}</strong></div>`);
+
+    if (archivedChats.length > 0) {
+        sections.push('<div style="font-weight:700; margin-bottom:6px;">Chats</div>');
+        sections.push(archivedChats.map((chat) => `
+            <div style="padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; cursor:pointer;" onclick="openArchivedChat('${chat.type}', '${chat.id}', '${String(chat.name).replace(/'/g, "\\'")}'); closeCustomDialog();">
+                <strong>${chat.name}</strong> <span style="color:var(--text-secondary); font-size:12px;">(${chat.type})</span>
+            </div>
+        `).join(''));
+    }
+
+    if (archivedMessages.length > 0) {
+        sections.push('<div style="font-weight:700; margin: 10px 0 6px;">Single Messages</div>');
+        sections.push(archivedMessages.slice().reverse().slice(0, 50).map((m) => `
+            <div style="padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px;">
+                <div style="font-size:12px; color:var(--text-secondary);">${new Date(m.timestamp).toLocaleString()}</div>
+                <div>${m.text || '[Media message]'}</div>
+            </div>
+        `).join(''));
+    }
+
+    if (archivedChats.length === 0 && archivedMessages.length === 0) {
+        sections.push('<div style="color: var(--text-secondary);">No archived content yet.</div>');
+    }
+
+    customAlert(sections.join(''), '📦 Archived Messages', '📦');
 }
+
+async function clearCurrentChatHistory() {
+    if (!currentChatContext || currentChatContext.type === 'none') {
+        showToast('Open a chat first', 'warning');
+        return;
+    }
+
+    const confirmed = await customConfirm(
+        'This will permanently clear all messages in the current chat for your account.',
+        'Clear Chat History',
+        '🧹',
+        true
+    );
+
+    if (!confirmed) return;
+
+    try {
+        if (currentChatContext.type === 'dm') {
+            const response = await fetch(`${API_BASE}/dms/${currentChatContext.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                showToast(data.error || 'Failed to clear chat history', 'error');
+                return;
+            }
+        } else {
+            socket?.emit('clear room chat', {
+                roomType: currentChatContext.type,
+                roomName: currentChatContext.name
+            });
+            const roomKey = `${currentChatContext.type}:${currentChatContext.name}`;
+            roomMessages[roomKey] = [];
+            saveRoomMessages();
+        }
+
+        document.getElementById('messages-container').innerHTML = '';
+        refreshChatScrollbar();
+        showToast('Chat history cleared', 'success');
+    } catch (error) {
+        console.error(error);
+        showToast('Failed to clear chat history', 'error');
+    }
+}
+
+async function rejectFriendRequest(requestId) {
+    try {
+        const response = await fetch(`${API_BASE}/friends/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ requestId })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            showToast(data.error || 'Failed to decline friend request', 'error');
+            return;
+        }
+
+        showToast('Friend request declined', 'warning');
+        loadFriends();
+    } catch (error) {
+        console.error(error);
+        showToast('Could not decline friend request', 'error');
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

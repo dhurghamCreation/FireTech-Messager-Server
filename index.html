@@ -297,6 +297,18 @@
             color: white;
         }
 
+        .channel-item.pinned {
+            background: rgba(88, 101, 242, 0.1);
+            border-left: 3px solid var(--primary-color);
+            font-weight: 600;
+        }
+
+        .channel-item .pin-indicator {
+            margin-left: auto;
+            color: var(--primary-color);
+            font-size: 12px;
+        }
+
         .channel-icon {
             font-size: 16px;
         }
@@ -401,6 +413,10 @@
             color: var(--success);
         }
 
+        .mobile-essential {
+            display: inline-flex;
+        }
+
         #messages-container {
             flex: 1;
             min-height: 0;
@@ -496,14 +512,17 @@
 
         .message-actions {
             position: absolute;
-            top: 4px;
-            right: 4px;
+            top: -8px;
+            right: 8px;
             display: none;
             gap: 4px;
             background: var(--chat-bg);
-            padding: 4px;
-            border-radius: 4px;
+            padding: 6px 8px;
+            border-radius: 18px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            flex-direction: row;
+            align-items: center;
         }
 
         .message:hover .message-actions {
@@ -511,27 +530,32 @@
         }
 
         .message-action-btn {
-            background: var(--bg-color);
-            border: 1px solid var(--border-color);
+            background: transparent;
+            border: none;
             color: var(--text-secondary);
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 6px 10px;
+            border-radius: 12px;
             cursor: pointer;
-            font-size: 11px;
+            font-size: 14px;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .message-action-btn:hover {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
+            background: var(--bg-color);
+            color: var(--primary-color);
+            transform: scale(1.05);
         }
 
         .message-reactions {
             display: flex;
+            flex-direction: row;
             flex-wrap: wrap;
-            gap: 4px;
-            margin-top: 4px;
+            gap: 6px;
+            margin-top: 8px;
+            align-items: center;
         }
 
         .reaction-item {
@@ -1000,6 +1024,21 @@
             align-items: center;
             gap: 12px;
             animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .toast:hover {
+            transform: translateX(-4px);
+        }
+
+        .toast.clickable {
+            cursor: pointer;
+        }
+
+        .toast.clickable:hover {
+            background: var(--bg-color);
+            transform: translateX(-8px) scale(1.02);
         }
 
         .toast.error {
@@ -1375,6 +1414,104 @@
             background: #5a5d60;
         }
 
+        /* ==================== MOBILE BOTTOM NAV ==================== */
+        .mobile-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--sidebar-bg);
+            border-top: 2px solid var(--border-color);
+            z-index: 1000;
+            flex-direction: row;
+            justify-content: space-around;
+            padding: 8px 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+        }
+
+        /* ==================== MOBILE MEMBERS PANEL ==================== */
+        .mobile-members-panel {
+            position: fixed;
+            right: -100%;
+            top: 0;
+            width: 80%;
+            max-width: 300px;
+            height: 100vh;
+            background: var(--sidebar-bg);
+            border-left: 1px solid var(--border-color);
+            z-index: 1500;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+        }
+
+        .mobile-members-panel.show {
+            right: 0;
+        }
+
+        .mobile-members-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mobile-members-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .mobile-members-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .mobile-nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .mobile-nav-item.active {
+            color: var(--primary-color);
+        }
+
+        .mobile-nav-item i {
+            font-size: 22px;
+        }
+
+        .mobile-nav-item span {
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .mobile-nav-badge {
+            position: absolute;
+            top: 4px;
+            right: 20%;
+            background: var(--danger);
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+            min-width: 18px;
+            text-align: center;
+        }
+
         /* ==================== RESPONSIVE ==================== */
         @media (max-width: 1200px) {
             .main-container {
@@ -1468,8 +1605,16 @@
                 flex-shrink: 0;
             }
 
+            .chat-header-left {
+                flex: 1;
+                min-width: 0;
+            }
+
             .chat-header-title {
                 font-size: 16px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             .build-badge {
@@ -1483,6 +1628,17 @@
 
             .chat-header-actions {
                 gap: 4px;
+                flex-wrap: nowrap;
+            }
+
+            .chat-header-actions .header-btn {
+                padding: 6px;
+            }
+
+            .chat-header-actions button:nth-of-type(1),
+            .chat-header-actions button:nth-of-type(3),
+            .chat-header-actions button:nth-of-type(7) {
+                display: none;
             }
 
             /* Mobile Messages Container */
@@ -1747,6 +1903,78 @@
             transform: translateY(-2px);
         }
 
+        /* ==================== COMMUNITY MEMBERS MODAL ==================== */
+        .community-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2600;
+        }
+
+        .community-modal.show {
+            display: flex;
+        }
+
+        .community-modal-content {
+            background: var(--chat-bg);
+            border-radius: 14px;
+            width: min(92vw, 520px);
+            max-height: 88vh;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+        }
+
+        .community-modal-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .community-modal-body {
+            padding: 12px 16px 16px;
+            overflow-y: auto;
+            max-height: calc(88vh - 68px);
+        }
+
+        .community-member-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .community-member-card:hover {
+            background: var(--bg-color);
+        }
+
+        .community-role-pill {
+            margin-left: auto;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .community-role-pill.leader {
+            color: #ffc107;
+            border-color: rgba(255, 193, 7, 0.45);
+            background: rgba(255, 193, 7, 0.1);
+        }
+
         /* ==================== FRIEND SEARCH BAR ==================== */
         .friend-search-container {
             padding: 12px 16px;
@@ -1982,27 +2210,174 @@
                 margin: 20px;
                 padding: 24px;
             }
-
-            .main-container {
-                grid-template-columns: 72px 1fr;
-                height: 100vh;
-                height: 100dvh; /* Dynamic viewport height for mobile */
-            }
-
-            .chat-area {
-                height: 100%;
-                max-height: 100vh;
-                max-height: 100dvh;
-            }
-
-            #messages-container {
-                max-height: calc(100vh - 200px);
-                max-height: calc(100dvh - 200px);
-                -webkit-overflow-scrolling: touch;
-            }
         }
 
         @media (max-width: 480px) {
+            /* Mobile layout: full-width chat area, hidden sidebars */
+            .main-container {
+                grid-template-columns: 1fr;
+                height: calc(100vh - 68px);
+                height: calc(100dvh - 68px);
+                padding-bottom: 68px;
+            }
+
+            .mobile-bottom-nav {
+                display: flex;
+            }
+
+            .guild-sidebar {
+                display: none !important;
+            }
+
+            .members-sidebar {
+                display: none !important;
+            }
+
+            .profile-panel {
+                width: 100vw;
+                right: -100vw;
+            }
+
+            .profile-panel.show {
+                right: 0;
+            }
+
+            .channel-sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 85%;
+                max-width: 320px;
+                height: 100vh;
+                height: 100dvh;
+                z-index: 1500;
+                display: none;
+                flex-direction: column;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            .channel-sidebar.show {
+                display: flex;
+                transform: translateX(0);
+            }
+
+            .channel-sidebar .sidebar-header > div button {
+                display: none;
+            }
+
+            .channel-sidebar .sidebar-header > div button:nth-child(3),
+            .channel-sidebar .sidebar-header > div button:nth-child(5) {
+                display: inline-block;
+            }
+
+            /* Overlay for sidebar */
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.6);
+                z-index: 1499;
+            }
+
+            .sidebar-overlay.show {
+                display: block;
+            }
+
+            .chat-area {
+                display: flex;
+                flex-direction: column;
+                height: calc(100vh - 68px);
+                height: calc(100dvh - 68px);
+                width: 100vw;
+                max-width: 100%;
+            }
+
+            /* Ensure chat header is visible and doesn't get cut off */
+            .chat-header {
+                padding: 12px 16px;
+                flex-shrink: 0;
+            }
+
+            .chat-header-title {
+                font-size: 16px;
+                font-weight: 600;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                flex: 1;
+            }
+
+            .chat-header-actions {
+                gap: 4px;
+                flex-shrink: 0;
+            }
+
+            .chat-header-actions button {
+                display: none;
+            }
+
+            .chat-header-actions .mobile-essential {
+                display: inline-flex;
+            }
+
+            .build-badge {
+                display: none;
+            }
+
+            /* Message container on mobile */
+            #messages-container {
+                flex: 1;
+                min-height: 0;
+                max-height: none;
+                overflow-y: auto;
+                overflow-x: hidden;
+                padding: 12px 16px;
+                padding-bottom: 16px;
+                gap: 8px;
+            }
+
+            .message {
+                gap: 8px;
+            }
+
+            .message-avatar {
+                width: 32px;
+                height: 32px;
+                min-width: 32px;
+            }
+
+            /* Input area on mobile */
+            .message-input-area {
+                flex-shrink: 0;
+                padding: 12px 16px;
+            }
+
+            .message-input-section {
+                display: flex;
+                gap: 8px;
+            }
+
+            #messageInput {
+                flex: 1;
+                padding: 10px 12px;
+                font-size: 14px;
+            }
+
+            .message-input-btn {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+
+            /* Scrollbar adjustment */
+            .chat-scroll-rail {
+                right: 4px;
+                width: 8px;
+            }
+
             .media-preview-item {
                 width: 100%;
                 height: 200px;
@@ -2014,6 +2389,56 @@
 
             .custom-dialog-btn {
                 width: 100%;
+            }
+
+            /* Profile panel adjustments */
+            .profile-panel {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 100vw;
+                height: 100vh;
+                z-index: 1000;
+            }
+
+            .profile-content {
+                width: 100%;
+                max-width: none;
+                border-radius: 0;
+            }
+
+            /* Friends modal adjustments */
+            .friends-modal {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 100vw;
+                height: 100vh;
+                border-radius: 0;
+                max-width: none;
+            }
+
+            .modal-content {
+                border-radius: 0;
+            }
+
+            .qr-modal-content {
+                margin: 20px;
+                padding: 16px;
+            }
+        }
+
+        @media (min-width: 481px) and (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 72px 1fr;
+            }
+
+            .members-sidebar {
+                display: none !important;
+            }
+
+            .channel-sidebar {
+                width: 200px;
             }
         }
     </style>
@@ -2088,21 +2513,15 @@
         <!-- CHANNEL SIDEBAR -->
         <div class="channel-sidebar" id="channelSidebar">
             <div class="sidebar-header">
-                <h3>Messages</h3>
-                <div style="display: flex; gap: 8px;">
-                    <button onclick="showQRCodeModal()" title="Show My QR Code" style="padding: 4px 8px; background: var(--success); border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 12px;">
-                        <i class="fas fa-qrcode"></i>
+                <h3>FireTech</h3>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button onclick="createNewGroup()" title="Create Group" style="padding: 6px 10px; background: var(--primary-color); border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 11px; font-weight: 600;">
+                        <i class="fas fa-plus"></i> New
                     </button>
-                    <button onclick="scanQRCodeForFriend()" title="Scan QR Code" style="padding: 4px 8px; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 12px;">
-                        <i class="fas fa-camera"></i>
+                    <button onclick="showQuickActionsMenu()" title="Quick Actions" style="padding: 6px 10px; background: var(--secondary-color); border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 11px;">
+                        <i class="fas fa-ellipsis-h"></i>
                     </button>
-                    <button onclick="createNewGroup()" title="Create Group" style="padding: 4px 8px; background: var(--primary-color); border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 12px;">
-                        <i class="fas fa-plus"></i> Group
-                    </button>
-                    <button onclick="showArchivedChats()" title="Archived Chats" style="padding: 4px 8px; background: var(--secondary-color); border: none; border-radius: 4px; color: var(--text-primary); cursor: pointer; font-size: 12px;">
-                        <i class="fas fa-archive"></i>
-                    </button>
-                    <button onclick="toggleChannelSidebar()" class="danger-hover" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 20px; padding: 4px 8px;"><i class="fas fa-times"></i></button>
+                    <button onclick="toggleChannelSidebar()" class="danger-hover" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px; padding: 4px 8px;"><i class="fas fa-times"></i></button>
                 </div>
             </div>
             <div class="friend-search-container">
@@ -2126,26 +2545,35 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge" title="Frontend build version">v2.2.0</span>
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.3.0</span>
                     <button class="header-btn" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
-                    <button class="header-btn" onclick="startVideoCall()" title="Video call">
+                    <button class="header-btn mobile-essential" onclick="startVideoCall()" title="Video call">
                         <i class="fas fa-video"></i>
+                    </button>
+                    <button class="header-btn mobile-essential" onclick="togglePinCurrentChat()" title="Pin/Unpin chat" id="pinChatBtn">
+                        <i class="fas fa-thumbtack"></i>
                     </button>
                     <button class="header-btn success" onclick="addCurrentChatToList()" title="Add chat to list">
                         <i class="fas fa-bookmark"></i>
                     </button>
-                    <button class="header-btn danger-hover" onclick="closeCurrentChat()" title="Close Chat" id="closeChatBtn" style="display: none;">
+                    <button class="header-btn danger-hover mobile-essential" onclick="closeCurrentChat()" title="Close Chat" id="closeChatBtn" style="display: none;">
                         <i class="fas fa-times-circle"></i>
                     </button>
-                    <button class="header-btn" onclick="openSettings()" title="Settings">
+                    <button class="header-btn mobile-essential" onclick="toggleMobileMembers()" title="View members">
+                        <i class="fas fa-users"></i>
+                    </button>
+                    <button class="header-btn mobile-essential" onclick="openQuickActionsMenu()" title="More options">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <button class="header-btn mobile-essential" onclick="openSettings()" title="Settings">
                         <i class="fas fa-cog"></i>
                     </button>
-                    <button class="header-btn" onclick="openProfile()" title="Profile">
+                    <button class="header-btn mobile-essential" onclick="openProfile()" title="Profile">
                         <i class="fas fa-user-circle"></i>
                     </button>
-                    <button class="header-btn danger-hover" onclick="logout()" title="Logout">
+                    <button class="header-btn danger-hover mobile-essential" onclick="logout()" title="Logout">
                         <i class="fas fa-sign-out-alt"></i>
                     </button>
                 </div>
@@ -2566,6 +2994,17 @@
 
     </div>
 
+    <!-- COMMUNITY DETAILS MODAL -->
+    <div class="community-modal" id="communityDetailsModal">
+        <div class="community-modal-content">
+            <div class="community-modal-header">
+                <h3 id="communityDetailsTitle">Community</h3>
+                <button class="header-btn" onclick="closeCommunityDetails()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="community-modal-body" id="communityDetailsBody"></div>
+        </div>
+    </div>
+
     <!-- QR CODE MODAL -->
     <div class="qr-modal" id="qrModal">
         <div class="qr-modal-content">
@@ -2592,11 +3031,52 @@
         </div>
     </div>
 
+    <!-- MOBILE BOTTOM NAVIGATION -->
+    <div class="mobile-bottom-nav" id="mobileBottomNav">
+        <button class="mobile-nav-item active" onclick="showMobileSection('chats')" data-section="chats">
+            <i class="fas fa-comment"></i>
+            <span>Chats</span>
+        </button>
+        <button class="mobile-nav-item" onclick="showMobileSection('communities')" data-section="communities">
+            <i class="fas fa-globe"></i>
+            <span>Communities</span>
+        </button>
+        <button class="mobile-nav-item" onclick="showMobileSection('groups')" data-section="groups">
+            <i class="fas fa-user-group"></i>
+            <span>Groups</span>
+        </button>
+        <button class="mobile-nav-item" onclick="showMobileSection('friends')" data-section="friends">
+            <i class="fas fa-users"></i>
+            <span>Friends</span>
+        </button>
+        <button class="mobile-nav-item" onclick="showMobileSection('settings')" data-section="settings">
+            <i class="fas fa-cog"></i>
+            <span>Settings</span>
+        </button>
+    </div>
+
+    <!-- SIDEBAR OVERLAY FOR MOBILE -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
+
+    <!-- MOBILE MEMBERS PANEL -->
+    <div class="mobile-members-panel" id="mobileMembersPanel">
+        <div class="mobile-members-header">
+            <h3>👥 Online Members</h3>
+            <button class="header-btn" onclick="toggleMobileMembers()" style="font-size: 20px;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="mobile-members-list" id="mobileMembersList">
+            <!-- Members will be populated here -->
+        </div>
+    </div>
+
     <!-- CUSTOM DIALOG MODAL (replaces alert/confirm/prompt) -->
     <div id="customDialog" style="display: none;"></div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="client.js?v=2.2.0"></script>
+    <script src="client.js?v=2.2.9"></script>
 </body>
 </html>
+

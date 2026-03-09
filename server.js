@@ -14,6 +14,34 @@ require('dotenv').config();
 
 const app = express();
 
+// Configure CORS
+const cors = require('cors');
+const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean) : ['*'];
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.includes('*')) return true;
+
+  return allowedOrigins.some((allowed) => {
+    if (allowed === origin) return true;
+    if (allowed.endsWith(':*')) {
+      const prefix = allowed.slice(0, -2);
+      return origin.startsWith(prefix + ':');
+    }
+    return false;
+  });
+}
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 // Middleware
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
@@ -30,17 +58,26 @@ app.use((req, res, next) => {
 
 app.use(express.static(__dirname));
 
+app.get('/api/version', (req, res) => {
+  try {
+    const packageJson = require('./package.json');
+    res.json({ version: packageJson.version || 'unknown' });
+  } catch (error) {
+    res.status(500).json({ version: 'unknown' });
+  }
+});
+
 // ======================== DATABASE CONNECTION ========================
 
-const sequelize = new Sequelize(
-  process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/discord-app',
-  {
-    dialect: 'postgres',
-    logging: false,
-    protocol: process.env.DATABASE_URL ? 'postgres' : undefined,
-    dialectOptions: process.env.DATABASE_URL ? { ssl: { require: true, rejectUnauthorized: false } } : undefined
-  }
-);
+const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/discord-app';
+const isLocalConnection = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
+const sequelize = new Sequelize(connectionString, {
+  dialect: 'postgres',
+  logging: false,
+  protocol: 'postgres',
+  dialectOptions: isLocalConnection ? {} : { ssl: { require: true, rejectUnauthorized: false } }
+});
 
 // ======================== MODELS ========================
 
@@ -425,7 +462,32 @@ app.post('/api/profile/upload', authenticateToken, async (req, res) => {
 app.post('/api/friends/request', authenticateToken, async (req, res) => {
   try {
     const { toUserId } = req.body;
+
+    if (!toUserId) return res.status(400).json({ error: 'toUserId is required' });
+    if (String(toUserId) === String(req.user.userId)) return res.status(400).json({ error: 'Cannot send request to yourself' });
+
+    const targetUser = await User.findByPk(toUserId);
+    if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+    const fromUser = await User.findByPk(req.user.userId);
+    const existingFriend = await fromUser.getFriends({ where: { id: toUserId } });
+    if (existingFriend.length > 0) return res.status(400).json({ error: 'Already friends' });
+
+    const existingPending = await FriendRequest.findOne({
+      where: {
+        status: 'pending',
+        [Op.or]: [
+          { fromId: req.user.userId, toId: toUserId },
+          { fromId: toUserId, toId: req.user.userId }
+        ]
+      }
+    });
+
+    if (existingPending) return res.status(400).json({ error: 'Friend request already pending' });
+
     await FriendRequest.create({ fromId: req.user.userId, toId: toUserId });
+
+    io.emit('friend request update', { toUserId });
     res.status(201).json({ message: 'Friend request sent' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -450,6 +512,12 @@ app.post('/api/friends/accept', authenticateToken, async (req, res) => {
     const request = await FriendRequest.findByPk(requestId);
 
     if (!request) return res.status(404).json({ error: 'Request not found' });
+    if (String(request.toId) !== String(req.user.userId)) {
+      return res.status(403).json({ error: 'Not allowed to accept this request' });
+    }
+    if (request.status !== 'pending') {
+      return res.status(400).json({ error: `Request already ${request.status}` });
+    }
 
     request.status = 'accepted';
     await request.save();
@@ -460,7 +528,41 @@ app.post('/api/friends/accept', authenticateToken, async (req, res) => {
     await fromUser.addFriend(toUser);
     await toUser.addFriend(fromUser);
 
+    io.emit('friend request accepted', {
+      requestId: request.id,
+      fromId: request.fromId,
+      toId: request.toId
+    });
+
     res.json({ message: 'Friend request accepted' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/friends/reject', authenticateToken, async (req, res) => {
+  try {
+    const { requestId } = req.body;
+    const request = await FriendRequest.findByPk(requestId);
+
+    if (!request) return res.status(404).json({ error: 'Request not found' });
+    if (String(request.toId) !== String(req.user.userId)) {
+      return res.status(403).json({ error: 'Not allowed to reject this request' });
+    }
+    if (request.status !== 'pending') {
+      return res.status(400).json({ error: `Request already ${request.status}` });
+    }
+
+    request.status = 'rejected';
+    await request.save();
+
+    io.emit('friend request rejected', {
+      requestId: request.id,
+      fromId: request.fromId,
+      toId: request.toId
+    });
+
+    res.json({ message: 'Friend request rejected' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -527,11 +629,6 @@ app.post('/api/dms', authenticateToken, async (req, res) => {
 
     if (!toUser) return res.status(404).json({ error: 'User not found' });
 
-    const friends = await fromUser.getFriends({ where: { id: toUserId } });
-    if (friends.length === 0) {
-      return res.status(403).json({ error: 'Can only DM friends' });
-    }
-
     const dm = await DirectMessage.create({
       messageId: uuidv4(),
       fromId: req.user.userId,
@@ -544,6 +641,30 @@ app.post('/api/dms', authenticateToken, async (req, res) => {
     });
 
     res.status(201).json(dm);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/dms/:friendId', authenticateToken, async (req, res) => {
+  try {
+    const { friendId } = req.params;
+    await DirectMessage.destroy({
+      where: {
+        [Op.or]: [
+          { fromId: req.user.userId, toId: friendId },
+          { fromId: friendId, toId: req.user.userId }
+        ]
+      }
+    });
+
+    // Notify the other user to clear their chat UI as well
+    emitToUser(friendId, 'dm history cleared', {
+      fromUserId: req.user.userId,
+      clearedAt: new Date().toISOString()
+    });
+
+    res.json({ message: 'DM history cleared for both users' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -623,13 +744,47 @@ const { server, protocol } = createServer(app);
 const io = require('socket.io')(server, {
   maxHttpBufferSize: 40 * 1024 * 1024,
   cors: {
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by Socket.IO CORS'));
+    },
     methods: ['GET', 'POST']
   }
 });
 
 const onlineUsers = new Map();
+const roomMessages = new Map();
 
+function normalizeRoomKey(roomType, roomName) {
+  return String(roomType || 'community') + ':' + String(roomName || '').trim().toLowerCase();
+}
+
+function getRoomMessages(roomType, roomName) {
+  const key = normalizeRoomKey(roomType, roomName);
+  return roomMessages.get(key) || [];
+}
+
+function appendRoomMessage(roomType, roomName, payload) {
+  const key = normalizeRoomKey(roomType, roomName);
+  const messages = roomMessages.get(key) || [];
+  messages.push(payload);
+  if (messages.length > 300) {
+    messages.splice(0, messages.length - 300);
+  }
+  roomMessages.set(key, messages);
+}
+
+function emitToUser(userId, eventName, payload) {
+  let delivered = 0;
+  for (const [socketId, userData] of onlineUsers.entries()) {
+    if (String(userData.userId) === String(userId)) {
+      io.to(socketId).emit(eventName, payload);
+      delivered += 1;
+    }
+  }
+
+  return delivered;
+}
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
@@ -683,13 +838,6 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const isSelfChat = String(toUserId) === String(socket.userId);
-      const friends = isSelfChat ? [] : await fromUser.getFriends({ where: { id: toUserId } });
-      if (!isSelfChat && friends.length === 0) {
-        socket.emit('error', 'Can only DM friends');
-        return;
-      }
-
       const dm = await DirectMessage.create({
         messageId: uuidv4(),
         fromId: socket.userId,
@@ -701,8 +849,7 @@ io.on('connection', (socket) => {
         mediaUrl: mediaUrl || null
       });
 
-      const roomId = [socket.userId, toUserId].sort().join('_');
-      io.to(roomId).emit('dm message', {
+      const dmPayload = {
         messageId: dm.messageId,
         from: socket.userId,
         fromUsername: fromUser.username,
@@ -713,7 +860,19 @@ io.on('connection', (socket) => {
         mediaType: dm.mediaType,
         mediaUrl: dm.mediaUrl,
         timestamp: dm.createdAt
-      });
+      };
+
+      // Always deliver directly to both users so messages arrive even if a DM room isn't currently joined.
+      emitToUser(socket.userId, 'dm message', dmPayload);
+      const deliveredToRecipient = emitToUser(toUserId, 'dm message', dmPayload);
+
+      if (deliveredToRecipient === 0) {
+        socket.emit('dm delivery status', {
+          messageId: dm.messageId,
+          toUserId,
+          delivered: false
+        });
+      }
     } catch (error) {
       socket.emit('error', error.message);
     }
@@ -732,6 +891,270 @@ io.on('connection', (socket) => {
     socket.broadcast.to(roomId).emit('dm user stop typing', {
       userId: socket.userId,
       username: socket.username
+    });
+  });
+
+  socket.on('community typing', (data) => {
+    const roomName = data?.community;
+    if (!roomName) return;
+    const roomKey = normalizeRoomKey('community', roomName);
+    socket.broadcast.to(roomKey).emit('community user typing', {
+      community: roomName,
+      userId: socket.userId,
+      username: socket.username
+    });
+  });
+
+  socket.on('community stop typing', (data) => {
+    const roomName = data?.community;
+    if (!roomName) return;
+    const roomKey = normalizeRoomKey('community', roomName);
+    socket.broadcast.to(roomKey).emit('community user stop typing', {
+      community: roomName,
+      userId: socket.userId,
+      username: socket.username
+    });
+  });
+
+  socket.on('room typing', (data) => {
+    const roomName = data?.roomName || data?.roomId;
+    if (!roomName) return;
+    const roomType = data?.roomType || 'group';
+    const roomKey = normalizeRoomKey(roomType, roomName);
+    socket.broadcast.to(roomKey).emit('room user typing', {
+      roomType,
+      roomId: roomName,
+      userId: socket.userId,
+      username: socket.username
+    });
+  });
+
+  socket.on('room stop typing', (data) => {
+    const roomName = data?.roomName || data?.roomId;
+    if (!roomName) return;
+    const roomType = data?.roomType || 'group';
+    const roomKey = normalizeRoomKey(roomType, roomName);
+    socket.broadcast.to(roomKey).emit('room user stop typing', {
+      roomType,
+      roomId: roomName,
+      userId: socket.userId,
+      username: socket.username
+    });
+  });
+
+  socket.on('join room chat', (data) => {
+    const roomType = data?.roomType;
+    const roomName = data?.roomName;
+    if (!roomType || !roomName) return;
+
+    const roomKey = normalizeRoomKey(roomType, roomName);
+
+    if (socket.currentRoomKey && socket.currentRoomKey !== roomKey) {
+      socket.leave(socket.currentRoomKey);
+    }
+
+    socket.join(roomKey);
+    socket.currentRoomKey = roomKey;
+
+    socket.emit('room chat history', {
+      roomType,
+      roomName,
+      messages: getRoomMessages(roomType, roomName)
+    });
+  });
+
+  socket.on('leave room chat', (data) => {
+    const roomType = data?.roomType;
+    const roomName = data?.roomName;
+    if (!roomType || !roomName) return;
+
+    const roomKey = normalizeRoomKey(roomType, roomName);
+    socket.leave(roomKey);
+
+    if (socket.currentRoomKey === roomKey) {
+      socket.currentRoomKey = null;
+    }
+  });
+
+  socket.on('send room message', (data) => {
+    const roomType = data?.roomType;
+    const roomName = data?.roomName;
+    if (!roomType || !roomName) return;
+
+    const messagePayload = {
+      messageId: uuidv4(),
+      from: socket.userId,
+      fromUsername: socket.username,
+      fromAvatar: socket.userAvatar || null,
+      content: data?.content || '',
+      mediaType: data?.mediaType || 'text',
+      mediaUrl: data?.mediaUrl || null,
+      roomType,
+      roomName,
+      timestamp: new Date().toISOString()
+    };
+
+    appendRoomMessage(roomType, roomName, messagePayload);
+    const roomKey = normalizeRoomKey(roomType, roomName);
+    io.to(roomKey).emit('room message', messagePayload);
+  });
+
+  socket.on('clear room chat', (data) => {
+    const roomType = data?.roomType;
+    const roomName = data?.roomName;
+    if (!roomType || !roomName) return;
+
+    const roomKey = normalizeRoomKey(roomType, roomName);
+    roomMessages.set(roomKey, []);
+    io.to(roomKey).emit('room chat cleared', { roomType, roomName, clearedBy: socket.userId });
+  });
+  socket.on('send friend request', async (data) => {
+    try {
+      const toUserId = data?.toUserId;
+      if (!toUserId) {
+        socket.emit('error', 'Target user is required');
+        return;
+      }
+
+      if (String(toUserId) === String(socket.userId)) {
+        socket.emit('error', 'Cannot send request to yourself');
+        return;
+      }
+
+      const targetUser = await User.findByPk(toUserId);
+      if (!targetUser) {
+        socket.emit('error', 'User not found');
+        return;
+      }
+
+      const fromUser = await User.findByPk(socket.userId);
+      const existingFriend = await fromUser.getFriends({ where: { id: toUserId } });
+      if (existingFriend.length > 0) {
+        socket.emit('error', 'Already friends');
+        return;
+      }
+
+      const existingPending = await FriendRequest.findOne({
+        where: {
+          status: 'pending',
+          [Op.or]: [
+            { fromId: socket.userId, toId: toUserId },
+            { fromId: toUserId, toId: socket.userId }
+          ]
+        }
+      });
+
+      if (existingPending) {
+        socket.emit('error', 'Friend request already pending');
+        return;
+      }
+
+      const newRequest = await FriendRequest.create({ fromId: socket.userId, toId: toUserId });
+
+      socket.emit('friend request sent', { requestId: newRequest.id, toUserId });
+      emitToUser(toUserId, 'friend request received', {
+        requestId: newRequest.id,
+        fromId: socket.userId,
+        fromUsername: socket.username,
+        fromAvatar: socket.userAvatar || null
+      });
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('start video call', async (data) => {
+    try {
+      const targetId = data?.targetId;
+      if (!targetId) {
+        socket.emit('error', 'Call target is required');
+        return;
+      }
+
+      const targetUser = await User.findByPk(targetId);
+      if (!targetUser) {
+        socket.emit('error', 'User not found');
+        return;
+      }
+
+      const callId = uuidv4();
+      const payload = {
+        callId,
+        fromId: socket.userId,
+        fromUsername: socket.username,
+        fromAvatar: socket.userAvatar || null,
+        toId: targetId,
+        type: data?.type || 'dm',
+        startedAt: new Date().toISOString()
+      };
+
+      const deliveredToTarget = emitToUser(targetId, 'incoming video call', payload);
+      socket.emit('video call ringing', {
+        ...payload,
+        deliveredToTarget: deliveredToTarget > 0
+      });
+
+      if (deliveredToTarget === 0) {
+        socket.emit('video call unavailable', {
+          callId,
+          targetId,
+          message: 'User is currently offline or not connected.'
+        });
+      }
+    } catch (error) {
+      socket.emit('error', error.message);
+    }
+  });
+
+  socket.on('accept video call', (data) => {
+    const callId = data?.callId;
+    const targetCallerId = data?.toId;
+    if (!callId || !targetCallerId) return;
+
+    emitToUser(targetCallerId, 'video call accepted', {
+      callId,
+      byUserId: socket.userId,
+      byUsername: socket.username,
+      acceptedAt: new Date().toISOString()
+    });
+  });
+
+  socket.on('reject video call', (data) => {
+    const callId = data?.callId;
+    const targetCallerId = data?.toId;
+    if (!callId || !targetCallerId) return;
+
+    emitToUser(targetCallerId, 'video call rejected', {
+      callId,
+      byUserId: socket.userId,
+      byUsername: socket.username,
+      rejectedAt: new Date().toISOString()
+    });
+  });
+
+  socket.on('end video call', (data) => {
+    const callId = data?.callId;
+    const peerUserId = data?.toId;
+    if (!callId || !peerUserId) return;
+
+    emitToUser(peerUserId, 'video call ended', {
+      callId,
+      byUserId: socket.userId,
+      byUsername: socket.username,
+      endedAt: new Date().toISOString()
+    });
+  });
+
+  socket.on('video signal', (data) => {
+    const toId = data?.toId;
+    const signal = data?.signal;
+    if (!toId || !signal) return;
+
+    emitToUser(toId, 'video signal', {
+      fromId: socket.userId,
+      fromUsername: socket.username,
+      callId: data?.callId || null,
+      signal
     });
   });
 
@@ -808,8 +1231,27 @@ async function migrateMediaTypeEnum() {
   }
 }
 
+async function seedShopItems() {
+  const existingCount = await ShopItem.count();
+  if (existingCount > 0) return;
+
+  const items = [
+    { itemId: 'banner_neon', name: 'Neon Banner Effect', description: 'Animated neon gradient banner for your profile.', price: 450, category: 'Banners', image: '' },
+    { itemId: 'badge_founder', name: 'Founder Badge', description: 'Exclusive badge shown next to your username.', price: 320, category: 'Badges', image: '' },
+    { itemId: 'color_pack_burst', name: 'Color Burst Pack', description: 'Unlock vibrant accent color themes.', price: 380, category: 'Themes', image: '' },
+    { itemId: 'chat_fx_glow', name: 'Message Glow FX', description: 'Subtle glow animation for sent messages.', price: 260, category: 'Effects', image: '' },
+    { itemId: 'avatar_ring_aura', name: 'Aura Avatar Ring', description: 'Premium animated ring around your avatar.', price: 520, category: 'Avatar', image: '' },
+    { itemId: 'nameplate_crystal', name: 'Crystal Nameplate', description: 'Polished nameplate style in member list.', price: 410, category: 'Nameplates', image: '' },
+    { itemId: 'theme_midnight', name: 'Midnight Theme Pack', description: 'Elegant dark gradients and UI accents.', price: 290, category: 'Themes', image: '' },
+    { itemId: 'emoji_pack_pro', name: 'Pro Emoji Pack', description: 'Premium emoji reactions collection.', price: 210, category: 'Emotes', image: '' }
+  ];
+
+  await ShopItem.bulkCreate(items);
+}
+
 sequelize.sync({ alter: true }).then(async () => {
   await migrateMediaTypeEnum();
+  await seedShopItems();
   server.listen(PORT, HOST, () => {
     const networkAddress = getLocalNetworkAddress();
     console.log(`
@@ -836,3 +1278,7 @@ sequelize.sync({ alter: true }).then(async () => {
   console.error('Database sync error:', err);
   process.exit(1);
 });
+
+
+
+
