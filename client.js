@@ -10,6 +10,10 @@ let pendingMediaDrafts = [];
 let activeCallState = null;
 let peerConnection = null;
 let localCallStream = null;
+let remoteCallStream = null;
+let remoteIceCandidatesQueue = [];
+let lastIceRecoveryAttemptAt = 0;
+let lastCallWarningAt = 0;
 let currentCallPeerId = null;
 let currentCallPeerName = null;
 let callTimerInterval = null;
@@ -21,6 +25,8 @@ let roomMessages = JSON.parse(localStorage.getItem('roomMessages') || '{}');
 let pinnedChats = [];
 let joinedCommunities = [];
 let joinedGroups = [];
+let cachedShopItemsById = {};
+let equippedShopItems = JSON.parse(localStorage.getItem('equippedShopItems') || '{}');
 let communityProfiles = JSON.parse(localStorage.getItem('communityProfiles') || '{}');
 let groupProfiles = JSON.parse(localStorage.getItem('groupProfiles') || '{}');
 let chatSettings = {
@@ -590,6 +596,7 @@ function connectSocket() {
                     await startCallSession(fromName, fromId, false);
                 }
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.offer));
+                await flushQueuedIceCandidates();
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
 
@@ -602,10 +609,11 @@ function connectSocket() {
 
             if (signal.type === 'answer' && peerConnection) {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.answer));
+                await flushQueuedIceCandidates();
             }
 
             if (signal.type === 'ice-candidate' && peerConnection && signal.candidate) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                await addOrQueueIceCandidate(signal.candidate);
             }
         } catch (error) {
             console.error('Video signaling error:', error);
@@ -641,18 +649,14 @@ function showMainApp() {
         const profilePanel = document.getElementById('profilePanel');
         if (profilePanel) {
             profilePanel.classList.remove('show');
-            profilePanel.style.display = 'none';
-            profilePanel.style.visibility = 'hidden';
-            profilePanel.style.pointerEvents = 'none';
-            profilePanel.style.opacity = '0';
-            profilePanel.style.transform = 'translateX(500px)';
+            profilePanel.removeAttribute('style');
         }
         
        
         const settingsPanel = document.getElementById('settingsPanel');
         if (settingsPanel) {
             settingsPanel.classList.remove('show');
-            settingsPanel.style.right = '-500px';
+            settingsPanel.removeAttribute('style');
         }
         
         
@@ -786,7 +790,14 @@ function toggleChannelSidebar() {
 }
 
 function openProfile() {
-    document.getElementById('profilePanel').classList.add('show');
+    const panel = document.getElementById('profilePanel');
+    if (!panel) return;
+    panel.style.removeProperty('display');
+    panel.style.removeProperty('visibility');
+    panel.style.removeProperty('pointer-events');
+    panel.style.removeProperty('opacity');
+    panel.style.removeProperty('transform');
+    panel.classList.add('show');
     loadUserProfile();
 }
 
@@ -807,14 +818,19 @@ function shareProfileLink() {
 }
 
 function closeProfile() {
-    document.getElementById('profilePanel').classList.remove('show');
+    const panel = document.getElementById('profilePanel');
+    if (!panel) return;
+    panel.classList.remove('show');
 }
 
-function switchProfileTab(tab) {
+function switchProfileTab(tab, triggerEl) {
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
 
-    event.target.classList.add('active');
+    const tabTrigger = triggerEl || (typeof event !== 'undefined' ? event.target : null);
+    if (tabTrigger) {
+        tabTrigger.classList.add('active');
+    }
     document.getElementById(tab + 'Tab').classList.add('active');
 
     if (tab === 'inventory') {
@@ -863,6 +879,8 @@ async function loadUserProfile() {
         document.getElementById('coinsDisplay').textContent = `💰 Coins: ${user.coins}`;
 
         currentUser = user;
+        localStorage.setItem('user', JSON.stringify(user));
+        applyPersistedShopEffects();
     } catch (error) {
         console.error('Failed to load profile:', error);
     }
@@ -1936,6 +1954,11 @@ async function loadShopItems() {
             { id: 'fallback_nameplate', name: 'Crystal Nameplate', description: 'Polished nameplate style in member list.', price: 410, category: 'Nameplates' }
         ];
 
+        cachedShopItemsById = {};
+        items.forEach((item) => {
+            cachedShopItemsById[item.id] = item;
+        });
+
         const shopList = document.getElementById('shopList');
         shopList.innerHTML = '';
 
@@ -1981,8 +2004,23 @@ async function buyItem(itemId) {
 
         const data = await response.json();
         if (response.ok) {
-            showToast('Item purchased!');
+            if (typeof data?.coins === 'number') {
+                currentUser.coins = data.coins;
+                localStorage.setItem('user', JSON.stringify(currentUser));
+                const coinsDisplay = document.getElementById('coinsDisplay');
+                if (coinsDisplay) {
+                    coinsDisplay.textContent = `💰 Coins: ${data.coins}`;
+                }
+            }
+
+            const purchasedItem = data?.purchasedItem || cachedShopItemsById[itemId];
+            if (purchasedItem?.category) {
+                applyShopItem(purchasedItem.id || itemId, purchasedItem.category);
+            }
+
+            showToast('Item purchased and applied!');
             loadShopItems();
+            loadInventory();
         } else {
             showToast(data.error, 'error');
         }
@@ -2028,15 +2066,59 @@ async function loadInventory() {
     }
 }
 
-function applyShopItem(itemId, category) {
+function saveEquippedShopItems() {
+    localStorage.setItem('equippedShopItems', JSON.stringify(equippedShopItems));
+}
+
+function applyPersistedShopEffects() {
+    if (!equippedShopItems || typeof equippedShopItems !== 'object') return;
+
+    Object.entries(equippedShopItems).forEach(([category, itemId]) => {
+        applyShopItem(itemId, category, { skipPersist: true, silent: true });
+    });
+}
+
+async function flushQueuedIceCandidates() {
+    if (!peerConnection || !remoteIceCandidatesQueue.length) return;
+
+    const queued = [...remoteIceCandidatesQueue];
+    remoteIceCandidatesQueue = [];
+    for (const candidate of queued) {
+        try {
+            await peerConnection.addIceCandidate(candidate);
+        } catch (error) {
+            console.warn('Failed to apply queued ICE candidate:', error);
+        }
+    }
+}
+
+async function addOrQueueIceCandidate(candidateData) {
+    if (!peerConnection || !candidateData) return;
+
+    const candidate = new RTCIceCandidate(candidateData);
+    const hasRemoteDescription = Boolean(peerConnection.remoteDescription && peerConnection.remoteDescription.type);
+
+    if (hasRemoteDescription) {
+        await peerConnection.addIceCandidate(candidate);
+    } else {
+        remoteIceCandidatesQueue.push(candidate);
+    }
+}
+
+function applyShopItem(itemId, category, options = {}) {
+    const { skipPersist = false, silent = false } = options;
+    const notify = (message, type = 'success') => {
+        if (!silent) showToast(message, type);
+    };
+
     const effectsMap = {
         'Banners': () => {
             document.documentElement.style.setProperty('--primary-color', '#00d4ff');
             document.documentElement.style.setProperty('--primary-hover', '#00b8e6');
-            showToast('✨ Banner effect applied! Your profile now has a neon glow.', 'success');
+            notify('✨ Banner effect applied! Your profile now has a neon glow.', 'success');
         },
         'Badges': () => {
-            showToast('🏆 Badge equipped! It now appears next to your name.', 'success');
+            notify('🏆 Badge equipped! It now appears next to your name.', 'success');
             
         },
         'Themes': () => {
@@ -2044,7 +2126,7 @@ function applyShopItem(itemId, category) {
             const randomColor = colors[Math.floor(Math.random() * colors.length)];
             document.documentElement.style.setProperty('--primary-color', randomColor);
             document.documentElement.style.setProperty('--primary-hover', randomColor + 'dd');
-            showToast('🎨 Theme applied! Your accent color has changed.', 'success');
+            notify('🎨 Theme applied! Your accent color has changed.', 'success');
         },
         'Effects': () => {
             
@@ -2062,7 +2144,7 @@ function applyShopItem(itemId, category) {
             const existing = document.getElementById('message-glow-effect');
             if (existing) existing.remove();
             document.head.appendChild(style);
-            showToast('✨ Message glow effect activated!', 'success');
+            notify('✨ Message glow effect activated!', 'success');
         },
         'Avatar': () => {
             const style = document.createElement('style');
@@ -2080,7 +2162,7 @@ function applyShopItem(itemId, category) {
             const existing = document.getElementById('avatar-aura-effect');
             if (existing) existing.remove();
             document.head.appendChild(style);
-            showToast('🌟 Avatar aura effect activated!', 'success');
+            notify('🌟 Avatar aura effect activated!', 'success');
         },
         'Nameplates': () => {
             const style = document.createElement('style');
@@ -2097,18 +2179,22 @@ function applyShopItem(itemId, category) {
             const existing = document.getElementById('nameplate-effect');
             if (existing) existing.remove();
             document.head.appendChild(style);
-            showToast('💎 Crystal nameplate effect activated!', 'success');
+            notify('💎 Crystal nameplate effect activated!', 'success');
         },
         'Emotes': () => {
-            showToast('😎 Special emotes unlocked! Use them in your messages.', 'success');
+            notify('😎 Special emotes unlocked! Use them in your messages.', 'success');
         }
     };
 
     const applyEffect = effectsMap[category];
     if (applyEffect) {
         applyEffect();
+        if (!skipPersist && category) {
+            equippedShopItems[category] = itemId;
+            saveEquippedShopItems();
+        }
     } else {
-        showToast('Effect applied!', 'success');
+        notify('Effect applied!', 'success');
     }
 }
 
@@ -2140,7 +2226,10 @@ function showToast(message, type = 'success') {
 
 
 function openSettings() {
-    document.getElementById('settingsPanel').classList.add('show');
+    const panel = document.getElementById('settingsPanel');
+    if (!panel) return;
+    panel.style.removeProperty('right');
+    panel.classList.add('show');
     if (currentUser) {
         document.getElementById('settingsEmail').value = currentUser.email || '';
         document.getElementById('settingsUsername').value = '';
@@ -2150,19 +2239,24 @@ function openSettings() {
 }
 
 function closeSettings() {
-    document.getElementById('settingsPanel').classList.remove('show');
+    const panel = document.getElementById('settingsPanel');
+    if (!panel) return;
+    panel.classList.remove('show');
     const simpleTheme = localStorage.getItem('simpleTheme');
     if (simpleTheme) {
         showToast('✅ Settings saved!', 'success');
     }
 }
 
-function switchSettingsTab(tab) {
+function switchSettingsTab(tab, triggerEl) {
     
     document.querySelectorAll('.settings-nav-item').forEach(item => {
         item.classList.remove('active');
     });
-    event.target.classList.add('active');
+    const navTrigger = triggerEl || (typeof event !== 'undefined' ? event.target : null);
+    if (navTrigger) {
+        navTrigger.classList.add('active');
+    }
     
     
     document.querySelectorAll('.settings-section').forEach(section => {
@@ -4700,6 +4794,10 @@ function handleIncomingVideoCall(payload) {
                 callId: activeCallState.callId,
                 toId: activeCallState.peerId
             });
+            startCallSession(callerName, activeCallState.peerId, false).catch((error) => {
+                console.error('Failed to initialize incoming call session:', error);
+                showToast('Unable to initialize call media devices', 'error');
+            });
             
         } else {
             stopIncomingCallAlert();
@@ -4715,6 +4813,13 @@ function handleIncomingVideoCall(payload) {
 
 async function ensureLocalCallStream() {
     if (localCallStream) return localCallStream;
+
+    if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        const secureContextError = new Error('Camera and microphone require HTTPS on non-localhost devices.');
+        showToast('❌ Call media blocked: open app over HTTPS on both devices.', 'error');
+        throw secureContextError;
+    }
+
     try {
         const selectedMic = audioSettings?.microphoneId;
         const constraints = {
@@ -4740,9 +4845,9 @@ async function ensureLocalCallStream() {
         try {
             localCallStream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
-                video: { facingMode: 'user' }
+                video: false
             });
-            showToast('📹 Camera and microphone enabled (default devices)', 'success');
+            showToast('🎤 Microphone enabled (camera unavailable on this device)', 'warning');
             return localCallStream;
         } catch (fallbackError) {
             showToast(`❌ Cannot access camera/mic: ${fallbackError.message}`, 'error');
@@ -4782,6 +4887,18 @@ function createPeerConnection(peerId) {
         iceCandidatePoolSize: 10
     });
 
+    remoteIceCandidatesQueue = [];
+    remoteCallStream = new MediaStream();
+
+    const remoteVideo = document.getElementById('remoteCallVideo');
+    if (remoteVideo) {
+        remoteVideo.srcObject = remoteCallStream;
+        remoteVideo.autoplay = true;
+        remoteVideo.playsInline = true;
+        remoteVideo.muted = false;
+        remoteVideo.volume = 1.0;
+    }
+
     if (localCallStream) {
         localCallStream.getTracks().forEach((track) => {
             peerConnection.addTrack(track, localCallStream);
@@ -4801,8 +4918,13 @@ function createPeerConnection(peerId) {
     peerConnection.ontrack = (event) => {
         console.log('📞 Remote track received:', event.track.kind, event.streams.length);
         const remoteVideo = document.getElementById('remoteCallVideo');
-        if (remoteVideo && event.streams[0]) {
-            remoteVideo.srcObject = event.streams[0];
+        if (remoteVideo) {
+            if (event.streams && event.streams[0]) {
+                remoteVideo.srcObject = event.streams[0];
+            } else if (remoteCallStream) {
+                remoteCallStream.addTrack(event.track);
+                remoteVideo.srcObject = remoteCallStream;
+            }
             
             
             remoteVideo.muted = false;
@@ -4829,8 +4951,19 @@ function createPeerConnection(peerId) {
                     }, 500);
                 });
             }
+
+            event.track.onunmute = () => {
+                remoteVideo.play().catch(() => {});
+            };
         }
     };
+
+    function showCallWarningThrottled(message) {
+        const now = Date.now();
+        if (now - lastCallWarningAt < 5000) return;
+        lastCallWarningAt = now;
+        showToast(message, 'warning');
+    }
 
     peerConnection.onconnectionstatechange = () => {
         console.log('📡 Connection state:', peerConnection.connectionState);
@@ -4840,13 +4973,6 @@ function createPeerConnection(peerId) {
             console.log('User ended call intentionally, skipping error messages');
             return;
         }
-        
-        
-        if (window.callDisconnectTimeout) {
-            clearTimeout(window.callDisconnectTimeout);
-            window.callDisconnectTimeout = null;
-        }
-        
         if (peerConnection.connectionState === 'connecting') {
             showToast('📞 Connecting call...', 'info');
             
@@ -4854,14 +4980,8 @@ function createPeerConnection(peerId) {
                 startCallTimer();
             }
         } else if (peerConnection.connectionState === 'disconnected') {
-            showToast('⚠️ Connection unstable, trying to reconnect...', 'warning');
-           
-            window.callDisconnectTimeout = setTimeout(() => {
-                if (peerConnection && peerConnection.connectionState === 'disconnected' && !window.userIntentionallEndedCall) {
-                    showToast('Call ended due to connection loss', 'error');
-                    cleanupCallSession(false);
-                }
-            }, 15000); 
+            showCallWarningThrottled('⚠️ Connection unstable, trying to reconnect...');
+            attemptIceRecovery(peerId);
         } else if (peerConnection.connectionState === 'connected') {
             showToast('📞 Call connected!', 'success');
            
@@ -4869,14 +4989,8 @@ function createPeerConnection(peerId) {
                 startCallTimer();
             }
         } else if (peerConnection.connectionState === 'failed') {
-            showToast('Network issue detected, trying to recover call...', 'warning');
-            peerConnection.restartIce?.();
-            window.callDisconnectTimeout = setTimeout(() => {
-                if (peerConnection && peerConnection.connectionState === 'failed' && !window.userIntentionallEndedCall) {
-                    showToast('Call ended after network failure', 'error');
-                    cleanupCallSession(false);
-                }
-            }, 12000);
+            showCallWarningThrottled('⚠️ Network issue detected, retrying call connection...');
+            attemptIceRecovery(peerId);
         } else if (peerConnection.connectionState === 'closed') {
             
             cleanupCallSession(false);
@@ -4887,11 +5001,39 @@ function createPeerConnection(peerId) {
         if (!peerConnection) return;
         console.log('ICE connection state:', peerConnection.iceConnectionState);
 
-        if (peerConnection.iceConnectionState === 'failed') {
-            
-            peerConnection.restartIce?.();
+        if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
+            attemptIceRecovery(peerId);
         }
     };
+
+    async function attemptIceRecovery(recoveryPeerId) {
+        if (!peerConnection || !socket || !socket.connected) return;
+
+        const now = Date.now();
+        if (now - lastIceRecoveryAttemptAt < 4000) return;
+        lastIceRecoveryAttemptAt = now;
+
+        try {
+            peerConnection.restartIce?.();
+
+            if (peerConnection.signalingState === 'stable') {
+                const recoveryOffer = await peerConnection.createOffer({
+                    iceRestart: true,
+                    offerToReceiveAudio: true,
+                    offerToReceiveVideo: true
+                });
+                await peerConnection.setLocalDescription(recoveryOffer);
+
+                socket.emit('video signal', {
+                    toId: recoveryPeerId,
+                    callId: activeCallState?.callId,
+                    signal: { type: 'offer', offer: recoveryOffer }
+                });
+            }
+        } catch (recoveryError) {
+            console.warn('ICE recovery attempt failed:', recoveryError);
+        }
+    }
 }
 
 function openCallDialog(peerName) {
@@ -4934,7 +5076,10 @@ async function startCallSession(peerName, peerId, isCaller) {
     createPeerConnection(peerId);
 
     if (isCaller && peerConnection) {
-        const offer = await peerConnection.createOffer();
+        const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true
+        });
         await peerConnection.setLocalDescription(offer);
         socket.emit('video signal', {
             toId: peerId,
@@ -4948,11 +5093,6 @@ function endVideoCall() {
     
     window.userIntentionallEndedCall = true;
     
-    
-    if (window.callDisconnectTimeout) {
-        clearTimeout(window.callDisconnectTimeout);
-        window.callDisconnectTimeout = null;
-    }
     
     if (socket && socket.connected && currentCallPeerId) {
         socket.emit('end video call', {
@@ -4989,11 +5129,6 @@ function cleanupCallSession(keepDialogOpen = false) {
     window.userIntentionallEndedCall = false;
     
     
-    if (window.callDisconnectTimeout) {
-        clearTimeout(window.callDisconnectTimeout);
-        window.callDisconnectTimeout = null;
-    }
-    
     stopIncomingCallAlert();
     stopCallTimer();
 
@@ -5003,6 +5138,11 @@ function cleanupCallSession(keepDialogOpen = false) {
         peerConnection.close();
         peerConnection = null;
     }
+
+    remoteIceCandidatesQueue = [];
+    remoteCallStream = null;
+    lastIceRecoveryAttemptAt = 0;
+    lastCallWarningAt = 0;
 
     if (localCallStream) {
         localCallStream.getTracks().forEach((track) => track.stop());

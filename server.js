@@ -689,9 +689,32 @@ app.post('/api/shop/buy', authenticateToken, async (req, res) => {
     user.coins -= item.price;
     await user.save();
 
-    await Inventory.create({ userId: user.id, shopItemId: item.id });
+    let inventoryItem = await Inventory.findOne({
+      where: {
+        userId: user.id,
+        shopItemId: item.id
+      }
+    });
 
-    res.json({ message: 'Item purchased', coins: user.coins });
+    if (inventoryItem) {
+      inventoryItem.quantity += 1;
+      await inventoryItem.save();
+    } else {
+      inventoryItem = await Inventory.create({ userId: user.id, shopItemId: item.id, quantity: 1 });
+    }
+
+    res.json({
+      message: 'Item purchased',
+      coins: user.coins,
+      purchasedItem: {
+        id: item.id,
+        itemId: item.itemId,
+        name: item.name,
+        category: item.category,
+        description: item.description
+      },
+      quantity: inventoryItem.quantity
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
