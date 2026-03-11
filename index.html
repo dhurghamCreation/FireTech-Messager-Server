@@ -2542,7 +2542,7 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.3.1</span>
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.3.3</span>
                     <button class="header-btn" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
@@ -2631,8 +2631,8 @@
         </div>
         <div class="profile-content">
             <div class="tab-buttons">
-                <button class="tab-btn active" onclick="switchProfileTab('profile')">Profile</button>
-                <button class="tab-btn" onclick="switchProfileTab('inventory')">Inventory</button>
+                <button class="tab-btn active" onclick="switchProfileTab('profile', this)">Profile</button>
+                <button class="tab-btn" onclick="switchProfileTab('inventory', this)">Inventory</button>
             </div>
 
             
@@ -2729,12 +2729,12 @@
         </div>
         <div class="settings-body">
             <div class="settings-nav">
-                <div class="settings-nav-item active" onclick="switchSettingsTab('account')">👤 Account</div>
-                <div class="settings-nav-item" onclick="switchSettingsTab('privacy')">🔒 Privacy</div>
-                <div class="settings-nav-item" onclick="switchSettingsTab('chat')">💬 Chat</div>
-                <div class="settings-nav-item" onclick="switchSettingsTab('notifications')">🔔 Notifications</div>
-                <div class="settings-nav-item" onclick="switchSettingsTab('appearance')">🎨 Appearance</div>
-                <div class="settings-nav-item" onclick="switchSettingsTab('stats')">📊 Statistics</div>
+                <div class="settings-nav-item active" onclick="switchSettingsTab('account', this)">👤 Account</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('privacy', this)">🔒 Privacy</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('chat', this)">💬 Chat</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('notifications', this)">🔔 Notifications</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('appearance', this)">🎨 Appearance</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('stats', this)">📊 Statistics</div>
             </div>
             <div class="settings-content">
                
