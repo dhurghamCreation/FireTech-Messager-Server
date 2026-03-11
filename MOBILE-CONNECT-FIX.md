@@ -36,13 +36,13 @@ cd C:\Users\dell\Downloads\message
 taskkill /F /IM node.exe 2>$null
 Start-Sleep -Seconds 2
 
-# Set environment variables
+
 $env:SSL_PFX_PATH = (Resolve-Path ".\certs\lan-localhost.pfx").Path
 $env:SSL_PFX_PASSPHRASE = "123456"
 $env:PORT = "3001"
 $env:HOST = "0.0.0.0"
 
-# Start server
+
 npm start
 ```
 
@@ -73,17 +73,16 @@ Wait for this message to appear:
 
 ### Check 1: Are you on the SAME Wi-Fi?
 ```powershell
-# Run on PC
+
 ipconfig | findstr "Wi-Fi" -A 5
 
-# Phone: Settings → Wi-Fi → see network name
-# They must match!
+
 ```
 
 ### Check 2: Is server actually listening?
 ```powershell
 netstat -ano | findstr ":3001"
-# Should show: TCP    0.0.0.0:3001    0.0.0.0:0    LISTENING
+
 ```
 
 ### Check 3: Firewall again (run as Admin)

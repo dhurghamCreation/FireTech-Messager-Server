@@ -1,4 +1,3 @@
-// ==================== GLOBAL STATE ====================
 let socket;
 let currentUser = null;
 let currentToken = null;
@@ -55,8 +54,7 @@ let themeSettings = {
     }
 };
 
-// ==================== SERVER CONFIGURATION ====================
-// Always use same-origin backend so it works on Railway, custom domains, LAN IPs, and localhost.
+
 const SERVER_URL = window.location.origin;
 const API_BASE = SERVER_URL + '/api';
 
@@ -76,7 +74,7 @@ async function syncBuildVersionBadge() {
             badge.title = `Running backend version: ${data.version}`;
         }
     } catch (error) {
-        // Keep fallback badge text if version endpoint is unavailable.
+        
     }
 }
 
@@ -126,7 +124,7 @@ function startIncomingCallAlert() {
             osc.start();
             osc.stop(incomingCallAudioContext.currentTime + 0.15);
         } catch (error) {
-            // Browser may block sound until user gesture; visual prompt still appears.
+            
         }
     }, 900);
 }
@@ -142,7 +140,7 @@ function stopIncomingCallAlert() {
     }
 }
 
-// ==================== AUTH FUNCTIONS ====================
+
 
 function toggleAuthMode() {
     isRegistering = !isRegistering;
@@ -335,7 +333,7 @@ function switchAccount() {
     setTimeout(() => location.reload(), 400);
 }
 
-// ==================== SOCKET.IO CONNECTION ====================
+
 
 function connectSocket() {
     socket = io(SERVER_URL, {
@@ -382,12 +380,12 @@ function connectSocket() {
 
         const isCurrentRoom = currentChatContext?.type === roomType && String(currentChatContext?.name) === String(roomName);
         if (isCurrentRoom) {
-            // Only show if from someone else to avoid duplicates from optimistic updates
+           
             if (String(payload.from) !== String(currentUser.id)) {
                 addMessageToChat(payload);
             }
         } else if (payload.from !== currentUser.id && chatSettings.notifyOnReceived) {
-            // Show notification for room message when not in that room
+            
             const messagePreview = payload.mediaType === 'text' ? payload.content : `${payload.mediaType} message`;
             const roomLabel = roomType === 'community' ? 'Community' : 'Group';
             showToastClickable(
@@ -419,7 +417,7 @@ function connectSocket() {
         const fromUserId = payload?.fromUserId;
         if (!fromUserId) return;
 
-        // If we're currently chatting with the user who cleared history, clear our UI too
+       
         if (currentChatContext?.type === 'dm' && String(currentChatContext?.id) === String(fromUserId)) {
             document.getElementById('messages-container').innerHTML = '';
             refreshChatScrollbar();
@@ -439,14 +437,14 @@ function connectSocket() {
         );
 
         if (isCurrentChat) {
-            // Only add to chat if we're the receiver (to avoid duplicates from optimistic updates)
+            
             if (!isSender) {
                 addMessageToChat(data);
             }
         }
 
         if (isSender && chatSettings.notifyOnSent) {
-            // Don't show toast for sent messages (already optimistically shown)
+            
         }
 
         if (!isSender && chatSettings.notifyOnReceived) {
@@ -468,17 +466,17 @@ function connectSocket() {
     });
 
     socket.on('dm user typing', (data) => {
-        // Display typing indicator for DM
+        
         showTypingIndicator(data.username);
     });
 
     socket.on('dm user stop typing', (data) => {
-        // Hide typing indicator for DM
+        
         hideTypingIndicator(data.username);
     });
 
     socket.on('community user typing', (data) => {
-        // Display typing indicator for community chats
+        
         if (currentChatContext.type === 'community' && currentChatContext.name === data.community) {
             showTypingIndicator(data.username);
         }
@@ -491,7 +489,7 @@ function connectSocket() {
     });
 
     socket.on('room user typing', (data) => {
-        // Display typing indicator for room/group chats
+        
         if ((currentChatContext.type === 'group' || currentChatContext.type === 'room') && String(currentChatContext.id) === String(data.roomId)) {
             showTypingIndicator(data.username);
         }
@@ -632,15 +630,14 @@ function hideTypingIndicator() {
     }
 }
 
-// ==================== UI FUNCTIONS ====================
+
 
 function showMainApp() {
     document.getElementById('authContainer').style.display = 'none';
     document.getElementById('mainApp').classList.remove('hidden');
     
-    // AGGRESSIVELY close all panels on startup (especially for mobile)
     try {
-        // Close profile panel - multiple methods to ensure it stays closed
+        
         const profilePanel = document.getElementById('profilePanel');
         if (profilePanel) {
             profilePanel.classList.remove('show');
@@ -651,26 +648,26 @@ function showMainApp() {
             profilePanel.style.transform = 'translateX(500px)';
         }
         
-        // Close settings panel
+       
         const settingsPanel = document.getElementById('settingsPanel');
         if (settingsPanel) {
             settingsPanel.classList.remove('show');
             settingsPanel.style.right = '-500px';
         }
         
-        // Close mobile members panel
+        
         const mobileMembersPanel = document.getElementById('mobileMembersPanel');
         if (mobileMembersPanel) {
             mobileMembersPanel.classList.remove('show');
         }
         
-        // Close sidebar overlay
+        
         const sidebarOverlay = document.getElementById('sidebarOverlay');
         if (sidebarOverlay) {
             sidebarOverlay.classList.remove('show');
         }
         
-        // Close channel sidebar on mobile
+      
         const channelSidebar = document.getElementById('channelSidebar');
         if (channelSidebar) {
             channelSidebar.classList.remove('show');
@@ -681,13 +678,12 @@ function showMainApp() {
     
     loadUserProfile();
     loadShopItems();
-    
-    // Check if there's a friend request in the URL
+   
     const urlParams = new URLSearchParams(window.location.search);
     const addFriendId = urlParams.get('addFriend');
     if (addFriendId && addFriendId !== currentUser.id) {
         sendFriendRequestFromLink(addFriendId);
-        // Clean up the URL
+        
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 }
@@ -723,31 +719,31 @@ function openDM(friendId, friendName) {
     clearPendingMediaDraft();
     updatePinButtonState();
     
-    // Check if chatting with self
+    
     const isSelfChat = String(friendId) === String(currentUser.id);
     const displayName = isSelfChat ? `📝 ${currentUser.username} (Notes)` : `💬 ${friendName}`;
     
-    // Update UI
+    
     const chatTitleEl = document.getElementById('chatTitle');
     chatTitleEl.textContent = displayName;
     chatTitleEl.onclick = null;
     document.getElementById('messages-container').innerHTML = '';
     refreshChatScrollbar();
     
-    // Show close chat button
+    
     document.getElementById('closeChatBtn').style.display = 'block';
     
-    // Load previous messages
+   
     loadDMMessages(friendId);
     
-    // Join DM room
+   
     if (socket && socket.connected) {
         socket.emit('join dm', friendId);
     }
     
     showSection('chat');
     
-    // Close mobile sidebar if open
+    
     if (window.innerWidth <= 480) {
         closeMobileSidebar();
     }
@@ -760,7 +756,7 @@ async function loadDMMessages(friendId) {
         });
         const messages = await response.json();
         
-        // Clear and load messages
+        
         document.getElementById('messages-container').innerHTML = '';
         messages.forEach(msg => {
             addMessageToChat({
@@ -836,7 +832,7 @@ function closeShopModal() {
     showSection('chat');
 }
 
-// ==================== PROFILE FUNCTIONS ====================
+
 
 async function loadUserProfile() {
     try {
@@ -900,7 +896,7 @@ async function saveProfile() {
     }
 }
 
-// ==================== MESSAGING FUNCTIONS ====================
+
 
 function handleMessageKeypress(event) {
     if (event.key === 'Enter' && chatSettings.enterToSend) {
@@ -980,7 +976,7 @@ function renderPendingMediaDraft() {
             itemWrapper.appendChild(file);
         }
 
-        // Remove button
+        
         const removeBtn = document.createElement('button');
         removeBtn.innerHTML = '✕';
         removeBtn.style.position = 'absolute';
@@ -1149,7 +1145,7 @@ async function sendMessage() {
     }
 
     try {
-        // Track message statistics
+        
         if (content) {
             updateUserStats('messagesCount', 1);
             updateUserStats('totalChars', content.length);
@@ -1196,7 +1192,7 @@ async function sendMessage() {
                 return;
             }
             
-            // Optimistically display message immediately
+           
             const optimisticMessage = {
                 id: Date.now(),
                 from: currentUser.id,
@@ -1209,7 +1205,7 @@ async function sendMessage() {
             };
             addMessageToChat(optimisticMessage);
             
-            // Send to server without waiting
+            
             socket.emit('send dm', {
                 toUserId: targetId,
                 content: content,
@@ -1274,18 +1270,18 @@ function addMessageToChat(data) {
         text.style.fontSize = '16px';
     }
     
-    // Handle stickers
+    
     if (data.mediaType === 'sticker') {
         text.style.fontSize = '96px';
         text.style.lineHeight = '1';
         text.textContent = data.content;
     } else {
-        // Check if message is only emojis
+        
         const emojiRegex = /^[\p{Emoji}\p{Emoji_Component}\s]+$/u;
         const isOnlyEmojis = data.content && emojiRegex.test(data.content.trim());
         
         if (isOnlyEmojis && data.content.trim().length <= 20) {
-            // Enlarge emoji-only messages
+            
             text.style.fontSize = '64px';
             text.style.lineHeight = '1.2';
         }
@@ -1297,14 +1293,14 @@ function addMessageToChat(data) {
     content.appendChild(text);
     content.appendChild(time);
 
-    // Add right-click context menu support
+    
     messageDiv.oncontextmenu = (e) => {
         e.preventDefault();
         showMessageContextMenu(e, messageDiv, data);
         return false;
     };
 
-    // Add message actions (edit, delete, react)
+   
     const actions = document.createElement('div');
     actions.className = 'message-actions';
     
@@ -1361,7 +1357,7 @@ function addMessageToChat(data) {
     
     content.appendChild(actions);
     
-    // Reactions container
+    
     const reactionsDiv = document.createElement('div');
     reactionsDiv.className = 'message-reactions';
     reactionsDiv.dataset.messageId = messageDiv.dataset.messageId;
@@ -1418,7 +1414,7 @@ function addMessageToChat(data) {
             audio.src = data.mediaUrl;
             audio.controls = true;
             audio.style.maxWidth = '300px';
-            // Apply speaker output device
+            
             if (audioSettings.speakerId && audioSettings.speakerId !== 'default' && audio.setSinkId) {
                 audio.setSinkId(audioSettings.speakerId).catch(err => {
                     console.warn('Could not set audio output device:', err);
@@ -1433,7 +1429,7 @@ function addMessageToChat(data) {
     messageDiv.appendChild(content);
     container.appendChild(messageDiv);
     
-    // Scroll to the latest message smoothly
+    
     setTimeout(() => {
         messageDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
         refreshChatScrollbar();
@@ -1476,7 +1472,7 @@ function updateMembersList(users) {
         item.style.cursor = 'pointer';
         item.title = `Click to view ${user.username}'s profile`;
 
-        // Create avatar
+       
         const avatar = document.createElement('div');
         avatar.className = 'member-avatar';
         if (user.avatar) {
@@ -1493,11 +1489,11 @@ function updateMembersList(users) {
         const name = document.createElement('span');
         name.textContent = user.username || 'Unknown';
 
-        // Get correct user ID (handle different property names)
+        
         const userId = user.id || user._id || user.userId;
         const username = user.username || 'User';
 
-        // Make item clickable to view profile
+        
         item.onclick = () => {
             if (!userId) {
                 showToast('❌ User ID not available', 'error');
@@ -1516,14 +1512,14 @@ function updateMembersList(users) {
         membersList.appendChild(item);
     });
 
-    // Also update mobile members list
+    
     const mobileMembersList = document.getElementById('mobileMembersList');
     if (mobileMembersList) {
         mobileMembersList.innerHTML = membersList.innerHTML;
     }
 }
 
-// ==================== FILE UPLOAD ====================
+
 
 async function handleFileUpload(event) {
     const files = Array.from(event.target.files || []);
@@ -1542,8 +1538,7 @@ async function handleFileUpload(event) {
     let sentCount = 0;
 
     for (const file of files) {
-        // Read and send each media file immediately after selection.
-        // This removes the extra "press send" step and feels instant like WhatsApp.
+        
         const payload = await new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -1574,7 +1569,7 @@ async function handleFileUpload(event) {
         showToast(`Sent ${sentCount} media file(s)`, 'success');
     }
 
-    // Reset the input
+    
     event.target.value = '';
 }
 
@@ -1610,11 +1605,11 @@ async function uploadProfileImage(event) {
     };
     reader.readAsDataURL(file);
 
-    // Reset the input
+    
     event.target.value = '';
 }
 
-// ==================== FRIENDS FUNCTIONS ====================
+
 
 async function loadFriendsForDM() {
     try {
@@ -1626,7 +1621,7 @@ async function loadFriendsForDM() {
         const channelsList = document.getElementById('channelsList');
         channelsList.innerHTML = '';
 
-        // Separate pinned and unpinned friends
+       
         const pinnedFriends = [];
         const unpinnedFriends = [];
         
@@ -1639,7 +1634,7 @@ async function loadFriendsForDM() {
             }
         });
 
-        // Show pinned section if there are pinned chats
+       
         if (pinnedFriends.length > 0) {
             const pinnedTitle = document.createElement('div');
             pinnedTitle.className = 'channel-section-title';
@@ -1651,7 +1646,6 @@ async function loadFriendsForDM() {
             });
         }
 
-        // Show communities if any
         if (joinedCommunities.length > 0) {
             const communitiesTitle = document.createElement('div');
             communitiesTitle.className = 'channel-section-title';
@@ -1680,7 +1674,7 @@ async function loadFriendsForDM() {
             });
         }
 
-        // Show groups if any
+        
         if (joinedGroups.length > 0) {
             const groupsTitle = document.createElement('div');
             groupsTitle.className = 'channel-section-title';
@@ -1714,7 +1708,7 @@ async function loadFriendsForDM() {
         directTitle.textContent = 'DIRECT MESSAGES';
         channelsList.appendChild(directTitle);
         
-        // Add self-chat option with avatar
+        
         const selfItem = document.createElement('div');
         selfItem.className = 'channel-item';
         
@@ -1762,7 +1756,7 @@ function createFriendChannelItem(friend, container, isPinned) {
         item.classList.add('pinned');
     }
     
-    // Create avatar
+    
     const avatar = document.createElement('div');
     avatar.className = 'channel-avatar';
     if (friend.avatar) {
@@ -1773,7 +1767,7 @@ function createFriendChannelItem(friend, container, isPinned) {
         avatar.textContent = friend.username.charAt(0).toUpperCase();
     }
     
-    // Create text with status
+    
     const text = document.createElement('span');
     const status = friend.status === 'online' ? '🟢' : '⚫';
     text.textContent = `${status} ${friend.username}`;
@@ -1791,7 +1785,7 @@ function createFriendChannelItem(friend, container, isPinned) {
     item.style.cursor = 'pointer';
     item.onclick = () => openDM(friend.id, friend.username);
     
-    // Add right-click context menu for profile
+    
     item.oncontextmenu = (e) => {
         e.preventDefault();
         showFriendContextMenu(e, friend.id, friend.username);
@@ -1925,7 +1919,7 @@ async function sendFriendRequestFromLink(friendId) {
     }
 }
 
-// ==================== SHOP FUNCTIONS ====================
+
 
 async function loadShopItems() {
     try {
@@ -1998,7 +1992,7 @@ async function buyItem(itemId) {
     }
 }
 
-// ==================== INVENTORY FUNCTIONS ====================
+
 
 async function loadInventory() {
     try {
@@ -2043,7 +2037,7 @@ function applyShopItem(itemId, category) {
         },
         'Badges': () => {
             showToast('🏆 Badge equipped! It now appears next to your name.', 'success');
-            // Badge would be stored in user profile and shown in messages
+            
         },
         'Themes': () => {
             const colors = ['#ff6b9d', '#c44569', '#4a69bd', '#6a89cc', '#60a3bc', '#78e08f', '#f6b93b', '#e55039'];
@@ -2053,7 +2047,7 @@ function applyShopItem(itemId, category) {
             showToast('🎨 Theme applied! Your accent color has changed.', 'success');
         },
         'Effects': () => {
-            // Message glow effect
+            
             const style = document.createElement('style');
             style.id = 'message-glow-effect';
             style.textContent = `
@@ -2119,7 +2113,6 @@ function applyShopItem(itemId, category) {
 }
 
 
-// ==================== TOAST NOTIFICATIONS ====================
 
 function showToast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
@@ -2144,7 +2137,7 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
-// ==================== SETTINGS PANEL ====================
+
 
 function openSettings() {
     document.getElementById('settingsPanel').classList.add('show');
@@ -2165,13 +2158,13 @@ function closeSettings() {
 }
 
 function switchSettingsTab(tab) {
-    // Update nav items
+    
     document.querySelectorAll('.settings-nav-item').forEach(item => {
         item.classList.remove('active');
     });
     event.target.classList.add('active');
     
-    // Update sections
+    
     document.querySelectorAll('.settings-section').forEach(section => {
         section.classList.remove('active');
     });
@@ -2211,7 +2204,7 @@ async function updateUsername() {
     }
 }
 
-// ==================== THEME SWITCHING ====================
+
 
 function changeTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
@@ -2228,7 +2221,7 @@ function loadTheme() {
     }
 }
 
-// ==================== CLOSE CHAT ====================
+
 
 function closeCurrentChat() {
     if (activeRoomSubscription && socket && socket.connected) {
@@ -2318,7 +2311,7 @@ function sendRoomMessage(payload) {
         return;
     }
 
-    // Optimistically display message immediately
+    
     const optimisticMessage = {
         id: Date.now(),
         from: currentUser.id,
@@ -2357,7 +2350,7 @@ function ensureChatTarget() {
     return null;
 }
 
-// ==================== DESKTOP NOTIFICATIONS ====================
+
 
 function requestNotificationPermission() {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -2458,14 +2451,14 @@ function openCommunitiesModal() {
     const modal = document.getElementById('communitiesModal');
     const list = document.getElementById('communitiesList');
     
-    // Show communities with better styling
+   
     const communities = [
-        { name: 'Gaming', emoji: '🎮', description: 'Talk about your favorite games' },
-        { name: 'Coding', emoji: '💻', description: 'Share code and learn together' },
-        { name: 'Music', emoji: '🎵', description: 'Discuss and share music' },
-        { name: 'Art', emoji: '🎨', description: 'Share your creative works' },
-        { name: 'Sports', emoji: '⚽', description: 'Sports fans unite' },
-        { name: 'Movies', emoji: '🎬', description: 'Film enthusiasts' }
+        { name: 'Gaming', iconId: '1F579', description: 'Talk about your favorite games' },
+        { name: 'Coding', iconId: '1F4BB', description: 'Share code and learn together' },
+        { name: 'Music', iconId: '1F3B5', description: 'Discuss and share music' },
+        { name: 'Art', iconId: '1F3A8', description: 'Share your creative works' },
+        { name: 'Sports', iconId: '26BD', description: 'Sports fans unite' },
+        { name: 'Movies', iconId: '1F3AC', description: 'Film enthusiasts' }
     ];
     
     list.innerHTML = communities.map(c => {
@@ -2475,7 +2468,7 @@ function openCommunitiesModal() {
             <div class="friend-item" style="flex-direction: column; align-items: flex-start; padding: 16px;">
                 <div style="display: flex; width: 100%; justify-content: space-between; align-items: center;">
                     <div>
-                        <span class="friend-name" style="font-size: 16px;">${profile.icon || c.emoji} ${c.name}</span>
+                        <span class="friend-name" style="font-size: 16px;">${profile.icon || String.fromCodePoint(parseInt(c.iconId, 16))} ${c.name}</span>
                         <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">${c.description}</div>
                     </div>
                     <div style="display:flex; gap:6px;">
@@ -2502,7 +2495,7 @@ function openGroupsModal() {
     const modal = document.getElementById('groupsModal');
     const list = document.getElementById('groupsList');
     
-    // Show groups with better styling
+   
     const groups = [
         { name: 'Study Group', emoji: '📚', description: 'Study together and share notes' },
         { name: 'Project Team', emoji: '💼', description: 'Collaborate on projects' },
@@ -2571,7 +2564,7 @@ function openCommunityChat(name) {
     document.getElementById('closeChatBtn').style.display = 'block';
     showSection('chat');
     
-    // Close mobile sidebar if open
+    
     if (window.innerWidth <= 480) {
         closeMobileSidebar();
     }
@@ -2593,7 +2586,7 @@ function openGroupChat(name) {
     document.getElementById('closeChatBtn').style.display = 'block';
     showSection('chat');
     
-    // Close mobile sidebar if open
+    
     if (window.innerWidth <= 480) {
         closeMobileSidebar();
     }
@@ -2636,7 +2629,7 @@ function joinGroup(name) {
     showToast(`Joined ${name} group!`);
 }
 
-// ==================== STICKER & GIF PICKER ====================
+
 
 const stickers = [
     '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
@@ -2684,7 +2677,7 @@ function loadPickerContent() {
             content.appendChild(item);
         });
     } else if (currentPickerTab === 'gifs') {
-        // Expanded GIF library with popular reactions and animations
+        
         const gifs = [
             'https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif',
             'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
@@ -2723,7 +2716,7 @@ function loadPickerContent() {
 }
 
 function sendSticker(sticker) {
-    // Insert emoji into text input instead of staging
+    
     const messageInput = document.getElementById('messageInput');
     if (messageInput) {
         const currentText = messageInput.value;
@@ -2745,7 +2738,7 @@ function sendGif(gifUrl) {
     document.getElementById('pickerPanel').classList.remove('show');
 }
 
-// ==================== VOICE RECORDING ====================
+
 
 let mediaRecorder;
 let audioChunks = [];
@@ -2786,14 +2779,14 @@ async function toggleRecording() {
     
     if (!mediaRecorder || mediaRecorder.state === 'inactive') {
         try {
-            // Use selected microphone
+            
             const stream = await getSelectedMicrophone();
             const mimeType = getSupportedAudioMimeType();
             recordedAudioMimeType = mimeType || 'audio/webm';
             mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
             audioChunks = [];
             
-            // Hide preview when starting new recording
+           
             if (previewContainer) previewContainer.style.display = 'none';
             if (previewAudio) {
                 previewAudio.pause();
@@ -2813,22 +2806,22 @@ async function toggleRecording() {
                     showToast('🎧 Recording ready! CLICK PLAY BUTTON to hear it before sending!', 'success');
                     if (sendBtn) sendBtn.disabled = false;
                     
-                    // Show preview container and load audio
+                    
                     if (previewContainer) previewContainer.style.display = 'block';
                     if (previewAudio) {
                         previewAudio.src = reader.result;
                         previewAudio.load();
-                        // Set volume to max for better audibility
+                        
                         previewAudio.volume = 1.0;
                         
-                        // Apply speaker output device
+                        
                         if (audioSettings.speakerId && audioSettings.speakerId !== 'default' && previewAudio.setSinkId) {
                             previewAudio.setSinkId(audioSettings.speakerId).catch(err => {
                                 console.warn('Could not set preview audio output:', err);
                             });
                         }
                         
-                        // Try to play automatically (may be blocked by browser)
+                       
                         previewAudio.play().catch(err => {
                             console.log('Autoplay blocked, user must click play:', err);
                             showToast('⚠️ Click the PLAY button ▶️ below to hear your recording!', 'warning');
@@ -2926,7 +2919,7 @@ function cancelRecording() {
     window.recordedAudio = null;
     recordingSeconds = 0;
     
-    // Hide preview container
+    
     if (previewContainer) previewContainer.style.display = 'none';
     if (previewAudio) {
         previewAudio.pause();
@@ -2936,23 +2929,22 @@ function cancelRecording() {
     if (sendBtn) sendBtn.disabled = true;
 }
 
-// ==================== SMOOTH SCROLLBAR WHEEL ====================
+
 
 function handleChatWheel(event) {
     const container = document.getElementById('messages-container');
     if (!container) return;
     
-    // Allow smooth wheel scrolling with accelerated movement
     event.preventDefault();
     const delta = event.deltaY;
     container.scrollBy({ top: delta * 0.8, behavior: 'auto' });
 }
 
-// ==================== AUDIO DEVICE SETTINGS ====================
+
 
 async function refreshAudioDevices() {
     try {
-        // Request permissions first
+        
         await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
             .then(stream => stream.getTracks().forEach(track => track.stop()))
             .catch(() => console.log('Microphone permission needed'));
@@ -3003,7 +2995,7 @@ function saveAudioSettings() {
     
     localStorage.setItem('audioSettings', JSON.stringify(audioSettings));
     
-    // Apply speaker to all existing audio elements
+    
     applySpeakerToAudioElements();
     
     showToast('Audio settings saved', 'success');
@@ -3013,7 +3005,7 @@ function applySpeakerToAudioElements() {
     const speakerId = audioSettings.speakerId;
     if (!speakerId || speakerId === 'default') return;
     
-    // Apply to all audio elements
+    
     document.querySelectorAll('audio').forEach(audio => {
         if (audio.setSinkId) {
             audio.setSinkId(speakerId).catch(err => {
@@ -3022,7 +3014,7 @@ function applySpeakerToAudioElements() {
         }
     });
     
-    // Also apply to voice preview
+    
     const voicePreview = document.getElementById('voicePreview');
     if (voicePreview && voicePreview.setSinkId) {
         voicePreview.setSinkId(speakerId).catch(err => {
@@ -3052,7 +3044,7 @@ async function getSelectedMicrophone() {
     });
 }
 
-// ==================== THEME & COLOR CUSTOMIZATION ====================
+
 
 function changeTheme(theme) {
     themeSettings.mode = theme;
@@ -3101,10 +3093,10 @@ function applySimpleCustomColors() {
     root.style.setProperty('--primary-color', icon);
     root.style.setProperty('--secondary-color', icon);
     root.style.setProperty('--icon-color', icon);
-    // Keep UI text color fixed (don't change with custom colors)
+    
     root.style.setProperty('--ui-text-color', '#ffffff');
     
-    // Save simple colors to localStorage
+    
     const simpleTheme = { bg, text, icon, mode: 'custom' };
     localStorage.setItem('simpleTheme', JSON.stringify(simpleTheme));
 }
@@ -3200,17 +3192,17 @@ function loadThemeSettings() {
     }
 }
 
-// ==================== MESSAGE ACTIONS (EDIT, DELETE, REACT) ====================
 
-let messageReactions = {}; // Store reactions: { messageId: { emoji: [userIds] } }
+
+let messageReactions = {}; 
 
 function showQuickReactions(messageId, messageDiv) {
     const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
     
-    // Remove any existing picker
+    
     document.querySelectorAll('.reaction-picker').forEach(p => p.remove());
     
-    // Create quick reaction picker
+    
     const picker = document.createElement('div');
     picker.className = 'reaction-picker';
     picker.style.position = 'fixed';
@@ -3223,7 +3215,7 @@ function showQuickReactions(messageId, messageDiv) {
     picker.style.zIndex = '9999';
     picker.style.boxShadow = '0 8px 24px rgba(0,0,0,0.6)';
     
-    // Position near the message (center of screen)
+    
     const rect = messageDiv.getBoundingClientRect();
     picker.style.left = Math.max(20, rect.left) + 'px';
     picker.style.top = Math.max(20, rect.top - 60) + 'px';
@@ -3256,7 +3248,7 @@ function showQuickReactions(messageId, messageDiv) {
     
     document.body.appendChild(picker);
     
-    // Remove picker when clicking outside
+    
     const closePickerHandler = (e) => {
         if (!picker.contains(e.target)) {
             picker.remove();
@@ -3282,13 +3274,13 @@ function addReaction(messageId, emoji) {
     const userIndex = messageReactions[messageId][emoji].indexOf(userId);
     
     if (userIndex > -1) {
-        // Remove reaction if already added
+       
         messageReactions[messageId][emoji].splice(userIndex, 1);
         if (messageReactions[messageId][emoji].length === 0) {
             delete messageReactions[messageId][emoji];
         }
     } else {
-        // Add reaction
+      
         messageReactions[messageId][emoji].push(userId);
         updateUserStats('reactionsGiven', 1);
     }
@@ -3299,7 +3291,7 @@ function addReaction(messageId, emoji) {
 }
 
 function showMessageContextMenu(e, messageDiv, data) {
-    // Remove any existing context menu
+    
     document.querySelectorAll('.message-context-menu').forEach(m => m.remove());
     
     const menu = document.createElement('div');
@@ -3337,7 +3329,7 @@ function showMessageContextMenu(e, messageDiv, data) {
         btn.style.fontWeight = '500';
         btn.style.borderBottom = '1px solid var(--border-color)';
         
-        // Add hover class for color coding
+        
         btn.onmouseover = () => {
             if (item.hoverClass === 'danger-hover') {
                 btn.style.background = 'var(--danger)';
@@ -3365,18 +3357,18 @@ function showMessageContextMenu(e, messageDiv, data) {
         menu.appendChild(btn);
     });
     
-    // Remove border from last item
+    
     const lastBtn = menu.lastElementChild;
     if (lastBtn) lastBtn.style.borderBottom = 'none';
     
     document.body.appendChild(menu);
     
-    // Close menu when clicking elsewhere
+    
     document.addEventListener('click', () => menu.remove(), { once: true });
 }
 
 function showFriendContextMenu(e, friendId, friendName) {
-    // Remove any existing context menu
+    
     document.querySelectorAll('.message-context-menu').forEach(m => m.remove());
     
     const menu = document.createElement('div');
@@ -3408,7 +3400,7 @@ function showFriendContextMenu(e, friendId, friendName) {
         btn.style.fontWeight = '500';
         btn.style.borderBottom = '1px solid var(--border-color)';
         
-        // Add hover class for color coding
+        
         btn.onmouseover = () => {
             if (item.hoverClass === 'danger-hover') {
                 btn.style.background = 'var(--danger)';
@@ -3436,13 +3428,13 @@ function showFriendContextMenu(e, friendId, friendName) {
         menu.appendChild(btn);
     });
     
-    // Remove border from last item
+    
     const lastBtn = menu.lastElementChild;
     if (lastBtn) lastBtn.style.borderBottom = 'none';
     
     document.body.appendChild(menu);
     
-    // Close menu when clicking elsewhere
+    
     document.addEventListener('click', () => menu.remove(), { once: true });
 }
 
@@ -3498,19 +3490,19 @@ function copyMessageText(messageId) {
     } else if (imgElement || vidElement || audioElement) {
         const url = imgElement?.src || vidElement?.src || audioElement?.src || '';
         if (url) {
-            // Add to media preview panel
+            
             if (imgElement) {
                 addToMediaPreview('image', url);
             } else if (vidElement) {
                 addToMediaPreview('video', url);
             }
             
-            // Copy to clipboard
+            
             navigator.clipboard.writeText(url).then(() => {
                 const mediaType = imgElement ? 'Image' : vidElement ? 'Video' : 'Audio';
                 showToast(`✅ ${mediaType} copied! View in preview panel.`, 'success');
                 
-                // Show preview panel if it has items
+                
                 if (copiedMediaItems.length > 0) {
                     setTimeout(() => openMediaPreview(), 500);
                 }
@@ -3542,8 +3534,7 @@ function editMessage(messageId, textElement) {
             
             showToast('✅ Message edited', 'success');
             
-            // TODO: Emit to server if needed
-            // socket.emit('edit message', { messageId, newText });
+            
         }
     });
 }
@@ -3556,24 +3547,23 @@ function deleteMessage(messageId, messageDiv) {
         true
     ).then(confirmed => {
         if (confirmed) {
-            // Add fade-out animation
+            
             messageDiv.style.transition = 'all 0.3s ease-out';
             messageDiv.style.opacity = '0';
             messageDiv.style.transform = 'translateX(-100%)';
             
-            // Remove from DOM after animation
+            
             setTimeout(() => {
                 messageDiv.remove();
                 showToast('✅ Message deleted', 'success');
             }, 300);
             
-            // TODO: Emit to server to delete from database
-            // socket.emit('delete message', { messageId });
+            
         }
     });
 }
 
-// ==================== GROUP CREATION & MANAGEMENT ====================
+
 
 function createNewGroup() {
     customPrompt('Enter a name for your new group:', '👥 Create Group', 'My Awesome Group', '', '👥').then(groupName => {
@@ -3596,7 +3586,7 @@ function createNewGroup() {
             
             const ids = memberIds.split(',').map(id => id.trim()).filter(Boolean);
             showToast(`✅ Group "${groupName}" created with ${ids.length} members!`, 'success');
-            // TODO: socket.emit('create group', { groupName, memberIds: ids });
+            
         });
     });
 }
@@ -3629,7 +3619,7 @@ function changeGroupPhoto() {
     input.click();
 }
 
-// ==================== VIDEO CALLS ====================
+
 
 function startVideoCall() {
     if (!currentChatContext || currentChatContext.type === 'none' || !currentChatContext.id) {
@@ -3646,11 +3636,11 @@ function startVideoCall() {
     const targetId = currentChatContext.id;
     const callType = 'Video Call';
     
-    // Open video call modal
+    
     openVideoCallModal(targetName, targetId, callType);
 }
 
-// ==================== ARCHIVE CHATS ====================
+
 
 let archivedChats = JSON.parse(localStorage.getItem('archivedChats') || '[]');
 
@@ -3667,14 +3657,14 @@ function toggleArchiveChat() {
     const archiveIndex = archivedChats.findIndex(c => c.id === chatId && c.type === chatType);
     
     if (archiveIndex > -1) {
-        // Unarchive
+        
         archivedChats.splice(archiveIndex, 1);
         showToast(`${chatName} unarchived`, 'success');
     } else {
-        // Archive
+        
         archivedChats.push({ id: chatId, name: chatName, type: chatType });
         showToast(`${chatName} archived`, 'success');
-        // PERMANENTLY REMOVE from chat list to prevent return
+        
         if (chatType === 'dm') {
             const friendIndex = friends.findIndex(f => f.id === chatId);
             if (friendIndex > -1) {
@@ -3686,7 +3676,7 @@ function toggleArchiveChat() {
     }
     
     localStorage.setItem('archivedChats', JSON.stringify(archivedChats));
-    loadFriendsForDM(); // Refresh list to hide/show archived chats
+    loadFriendsForDM(); 
 }
 
 function showArchivedChats() {
@@ -3746,11 +3736,11 @@ function unarchiveChat(type, id) {
         showToast(`${chat.name} unarchived`, 'success');
         loadFriendsForDM();
         closeCustomDialog();
-        showArchivedChats(); // Refresh the archived chats modal
+        showArchivedChats(); 
     }
 }
 
-// ==================== STATISTICS & QUIZZES ====================
+
 
 let userStats = JSON.parse(localStorage.getItem('userStats') || '{"messagesCount": 0, "totalChars": 0, "reactionsGiven": 0, "archiveCount": 0, "quizCorrect": 0}');
 
@@ -3882,9 +3872,9 @@ function resetUserStats() {
     });
 }
 
-// ==================== MOBILE NAVIGATION ====================
+
 function showMobileSection(section) {
-    // Keep one panel visible at a time on phones.
+   
     if (window.innerWidth <= 768) {
         closeMobileSidebar();
         closeSettings();
@@ -3893,7 +3883,7 @@ function showMobileSection(section) {
         closeGroupsModal();
     }
 
-    // Update active state on nav items
+   
     document.querySelectorAll('.mobile-nav-item').forEach(item => {
         if (item.getAttribute('data-section') === section) {
             item.classList.add('active');
@@ -3902,7 +3892,7 @@ function showMobileSection(section) {
         }
     });
 
-    // Handle different sections
+    
     switch(section) {
         case 'chats':
             toggleChannelSidebar();
@@ -3986,7 +3976,7 @@ function updateMobileMembersList() {
     const desktopList = document.getElementById('membersList');
     if (!mobileList || !desktopList) return;
     
-    // Copy the desktop members list to mobile
+    
     mobileList.innerHTML = desktopList.innerHTML;
 }
 
@@ -3994,7 +3984,7 @@ function getCommunityProfile(name) {
     if (!communityProfiles[name]) {
         communityProfiles[name] = {
             name,
-            icon: '🌐',
+            icon: '',
             image: '',
             members: [
                 {
@@ -4117,7 +4107,7 @@ function setCommunityIcon(name, icon) {
     if (currentChatContext.type === 'community' && currentChatContext.name === name) {
         document.getElementById('chatTitle').textContent = `${profile.icon} Community: ${name}`;
     }
-    loadFriendsForDM(); // Refresh chat list to show new icon
+    loadFriendsForDM(); 
     showToast('Community icon updated! 🎉', 'success');
 }
 
@@ -4145,7 +4135,7 @@ function changeCommunityImagePrompt(name) {
             communityProfiles[name] = profile;
             localStorage.setItem('communityProfiles', JSON.stringify(communityProfiles));
             
-            // IMMEDIATELY update profile panel
+         
             if (currentChatContext?.type === 'community' && currentChatContext?.name === name) {
                 const profileAvatar = document.getElementById('profileAvatar');
                 if (profileAvatar) {
@@ -4158,7 +4148,7 @@ function changeCommunityImagePrompt(name) {
                 if (profileName) {
                     profileName.textContent = name;
                 }
-                // Force re-render profile to ensure image persists
+                
                 setTimeout(() => {
                     const avatarDiv = document.getElementById('profileAvatar');
                     if (avatarDiv && !avatarDiv.style.backgroundImage) {
@@ -4191,7 +4181,7 @@ function changeGroupImagePrompt(name) {
             groupProfiles[name] = profile;
             localStorage.setItem('groupProfiles', JSON.stringify(groupProfiles));
             
-            // IMMEDIATELY update profile panel
+            
             if (currentChatContext?.type === 'group' && currentChatContext?.name === name) {
                 const profileAvatar = document.getElementById('profileAvatar');
                 if (profileAvatar) {
@@ -4204,7 +4194,7 @@ function changeGroupImagePrompt(name) {
                 if (profileName) {
                     profileName.textContent = name;
                 }
-                // Force re-render profile to ensure image persists
+                
                 setTimeout(() => {
                     const avatarDiv = document.getElementById('profileAvatar');
                     if (avatarDiv && !avatarDiv.style.backgroundImage) {
@@ -4222,7 +4212,7 @@ function changeGroupImagePrompt(name) {
     input.click();
 }
 
-// Update toggleChannelSidebar to work with overlay
+
 function toggleChannelSidebarEnhanced() {
     const sidebar = document.getElementById('channelSidebar');
     const overlay = document.getElementById('sidebarOverlay');
@@ -4231,7 +4221,7 @@ function toggleChannelSidebarEnhanced() {
     overlay?.classList.toggle('show');
 }
 
-// ==================== PINNED CHATS ====================
+
 function togglePinCurrentChat() {
     if (!currentChatContext || currentChatContext.type === 'none') {
         showToast('No chat selected', 'warning');
@@ -4242,18 +4232,18 @@ function togglePinCurrentChat() {
     const index = pinnedChats.indexOf(chatId);
     
     if (index > -1) {
-        // Unpin
+        
         pinnedChats.splice(index, 1);
         showToast('Chat unpinned', 'success');
     } else {
-        // Pin
+        
         pinnedChats.push(chatId);
         showToast('Chat pinned to top', 'success');
     }
     
     localStorage.setItem('pinnedChats', JSON.stringify(pinnedChats));
     updatePinButtonState();
-    loadFriendsForDM(); // Refresh the chat list to show pinned at top
+    loadFriendsForDM(); 
 }
 
 function updatePinButtonState() {
@@ -4272,7 +4262,7 @@ function isChatPinned(chatType, chatId) {
     return pinnedChats.includes(chatKey);
 }
 
-// ==================== CLICKABLE NOTIFICATIONS ====================
+
 function showToastClickable(message, type = 'success', chatContext = null) {
     const container = document.getElementById('toastContainer');
     if (!container) return;
@@ -4299,7 +4289,7 @@ function showToastClickable(message, type = 'success', chatContext = null) {
     if (chatContext) {
         toast.style.cursor = 'pointer';
         toast.addEventListener('click', () => {
-            // Navigate to chat
+            
             if (chatContext.type === 'dm') {
                 openDM(chatContext.friendId, chatContext.friendName);
             } else if (chatContext.type === 'community') {
@@ -4308,10 +4298,10 @@ function showToastClickable(message, type = 'success', chatContext = null) {
                 openRoomChat('group', chatContext.name);
             }
             
-            // Remove the notification
+            
             toast.remove();
             
-            // Close any open modals/sidebars on mobile
+          
             if (window.innerWidth <= 480) {
                 closeMobileSidebar();
             }
@@ -4325,7 +4315,7 @@ function showToastClickable(message, type = 'success', chatContext = null) {
     }, 5000);
 }
 
-// ==================== INITIALIZATION ====================
+
 
 window.addEventListener('DOMContentLoaded', () => {
     loadTheme();
@@ -4341,14 +4331,14 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('autoplayGifs')?.addEventListener('change', saveChatSettings);
     document.getElementById('compactMode')?.addEventListener('change', saveAppearanceSettings);
 
-    // Add typing notification support for communities and rooms
+    
     let typingTimeout = null;
     const typingInput = document.getElementById('messageInput');
     if (typingInput) {
         typingInput.addEventListener('input', () => {
             if (!chatSettings.showTypingIndicator) return;
             
-            // Emit typing event for current chat context
+            
             if (currentChatContext.type === 'community' && currentChatContext.name) {
                 socket?.emit('community typing', { community: currentChatContext.name, username: currentUser?.username });
                 clearTimeout(typingTimeout);
@@ -4391,13 +4381,13 @@ window.addEventListener('DOMContentLoaded', () => {
         picker.classList.remove('show');
     });
 
-    // Load audio and theme settings
+   
     loadAudioSettings();
     loadThemeSettings();
     refreshAudioDevices();
     updateStatsDisplay();
 
-    // Check for existing token
+    
     syncBuildVersionBadge();
 
     const token = localStorage.getItem('token');
@@ -4413,7 +4403,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('mainApp').classList.add('hidden');
     }
 });
-// ==================== CUSTOM DIALOG SYSTEM ====================
+
 
 function customAlert(message, title = 'Notice', icon = 'ℹ️') {
     return new Promise((resolve) => {
@@ -4502,7 +4492,7 @@ function resolveCustomDialog(value) {
     if (window.customDialogResolve) window.customDialogResolve(value);
 }
 
-// ==================== QR CODE FUNCTIONALITY ====================
+
 
 function showQRCodeModal() {
     const modal = document.getElementById('qrModal');
@@ -4514,10 +4504,10 @@ function showQRCodeModal() {
         return;
     }
     
-    // Clear previous QR code completely
+   
     qrContainer.innerHTML = '';
     
-    // Create new container div for QR code
+    
     const qrDiv = document.createElement('div');
     qrDiv.id = 'qrCodeCanvas';
     qrDiv.style.backgroundColor = '#ffffff';
@@ -4526,13 +4516,13 @@ function showQRCodeModal() {
     qrDiv.style.display = 'inline-block';
     qrContainer.appendChild(qrDiv);
     
-    // Display user ID
+    
     userIdSpan.textContent = currentUser.id || currentUser._id || 'Unknown';
     
-    // Generate QR code with friend request data
+    
     const friendRequestData = `FRIEND_REQUEST:${currentUser.id || currentUser._id}:${currentUser.username || 'User'}`;
     
-    // Use QRCode library if available, otherwise use API
+   
     if (typeof QRCode !== 'undefined') {
         try {
             new QRCode(qrDiv, {
@@ -4550,7 +4540,7 @@ function showQRCodeModal() {
         }
     } else {
         console.warn('⚠️ QRCode library not loaded, using fallback');
-        // Use API fallback
+        
         generateQRCodeFallback(qrDiv, friendRequestData);
     }
     
@@ -4560,7 +4550,7 @@ function showQRCodeModal() {
 function generateQRCodeFallback(container, data) {
     console.log('📱 Using QR Code API fallback');
     
-    // Use QR Code API with image
+   
     const img = new Image();
     img.style.width = '200px';
     img.style.height = '200px';
@@ -4576,7 +4566,7 @@ function generateQRCodeFallback(container, data) {
     
     img.onerror = () => {
         console.error('❌ QR Code API failed');
-        // Final fallback - show text
+        
         container.innerHTML = `
             <div style="width: 200px; height: 200px; background: white; border: 2px solid #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 20px; box-sizing: border-box;">
                 <div style="font-size: 24px; margin-bottom: 10px;">📱</div>
@@ -4607,13 +4597,13 @@ function scanQRCodeForFriend() {
         let friendId = null;
         let friendName = 'User';
         
-        // Parse QR data
+        
         if (qrData.startsWith('FRIEND_REQUEST:')) {
             const parts = qrData.split(':');
             friendId = parts[1];
             friendName = parts[2] || 'User';
         } else {
-            // Just ID provided
+           
             friendId = qrData.trim();
         }
         
@@ -4622,7 +4612,7 @@ function scanQRCodeForFriend() {
             return;
         }
         
-        // Send friend request
+        
         customConfirm(
             `Send friend request to <strong>${friendName}</strong> (ID: ${friendId})?`,
             '👤 Friend Request',
@@ -4641,7 +4631,7 @@ function scanQRCodeForFriend() {
     });
 }
 
-// ==================== VIDEO CALL MODAL ====================
+
 
 function openVideoCallModal(targetName, targetId, callType) {
     targetName = targetName || currentChatContext.name || 'User';
@@ -4674,7 +4664,7 @@ function openVideoCallModal(targetName, targetId, callType) {
     
     customAlert(html, '📞 Video Call', '📞');
     
-    // Emit to server if connected
+   
     if (socket && socket.connected && targetId) {
         socket.emit('start video call', { 
             targetId: targetId, 
@@ -4710,7 +4700,7 @@ function handleIncomingVideoCall(payload) {
                 callId: activeCallState.callId,
                 toId: activeCallState.peerId
             });
-            // Wait for caller offer to arrive, then start peer session from signaling handler.
+            
         } else {
             stopIncomingCallAlert();
             socket.emit('reject video call', {
@@ -4746,7 +4736,7 @@ async function ensureLocalCallStream() {
     } catch (error) {
         console.error('Media access error:', error);
 
-        // Retry with safe defaults if selected device is unavailable.
+        
         try {
             localCallStream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
@@ -4772,7 +4762,7 @@ function createPeerConnection(peerId) {
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
-            // Public TURN servers for better mobile connectivity
+            
             {
                 urls: 'turn:openrelay.metered.ca:80',
                 username: 'openrelayproject',
@@ -4814,18 +4804,18 @@ function createPeerConnection(peerId) {
         if (remoteVideo && event.streams[0]) {
             remoteVideo.srcObject = event.streams[0];
             
-            // CRITICAL: Ensure audio is enabled
+            
             remoteVideo.muted = false;
             remoteVideo.volume = 1.0;
             
-            // Apply selected speaker if supported
+            
             if (audioSettings.speakerId && audioSettings.speakerId !== 'default' && typeof remoteVideo.setSinkId === 'function') {
                 remoteVideo.setSinkId(audioSettings.speakerId).catch((sinkError) => {
                     console.warn('Could not apply selected speaker for call:', sinkError);
                 });
             }
             
-            // Force play with user interaction handling
+            
             const playPromise = remoteVideo.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
@@ -4833,7 +4823,7 @@ function createPeerConnection(peerId) {
                     showToast('📞 Connected! Audio should be working now', 'success');
                 }).catch((error) => {
                     console.error('Remote video play error:', error);
-                    // Try auto-playing after a short delay
+                    
                     setTimeout(() => {
                         remoteVideo.play().catch(e => console.error('Retry play failed:', e));
                     }, 500);
@@ -4845,13 +4835,13 @@ function createPeerConnection(peerId) {
     peerConnection.onconnectionstatechange = () => {
         console.log('📡 Connection state:', peerConnection.connectionState);
         
-        // If user intentionally ended call, don't show error messages
+       
         if (window.userIntentionallEndedCall) {
             console.log('User ended call intentionally, skipping error messages');
             return;
         }
         
-        // Clear any existing disconnect timeout
+        
         if (window.callDisconnectTimeout) {
             clearTimeout(window.callDisconnectTimeout);
             window.callDisconnectTimeout = null;
@@ -4859,22 +4849,22 @@ function createPeerConnection(peerId) {
         
         if (peerConnection.connectionState === 'connecting') {
             showToast('📞 Connecting call...', 'info');
-            // Start timer immediately when connecting begins
+            
             if (!callTimerInterval) {
                 startCallTimer();
             }
         } else if (peerConnection.connectionState === 'disconnected') {
             showToast('⚠️ Connection unstable, trying to reconnect...', 'warning');
-            // Give more time for mobile networks to reconnect
+           
             window.callDisconnectTimeout = setTimeout(() => {
                 if (peerConnection && peerConnection.connectionState === 'disconnected' && !window.userIntentionallEndedCall) {
                     showToast('Call ended due to connection loss', 'error');
                     cleanupCallSession(false);
                 }
-            }, 15000); // 15 seconds grace period for mobile networks
+            }, 15000); 
         } else if (peerConnection.connectionState === 'connected') {
             showToast('📞 Call connected!', 'success');
-            // Ensure timer is running
+           
             if (!callTimerInterval) {
                 startCallTimer();
             }
@@ -4888,7 +4878,7 @@ function createPeerConnection(peerId) {
                 }
             }, 12000);
         } else if (peerConnection.connectionState === 'closed') {
-            // Don't show toast for normal closure (user hung up)
+            
             cleanupCallSession(false);
         }
     };
@@ -4898,7 +4888,7 @@ function createPeerConnection(peerId) {
         console.log('ICE connection state:', peerConnection.iceConnectionState);
 
         if (peerConnection.iceConnectionState === 'failed') {
-            // Try ICE restart before ending the call.
+            
             peerConnection.restartIce?.();
         }
     };
@@ -4955,10 +4945,10 @@ async function startCallSession(peerName, peerId, isCaller) {
 }
 
 function endVideoCall() {
-    // Mark that user intentionally ended the call (prevents timeout errors)
+    
     window.userIntentionallEndedCall = true;
     
-    // Clear any disconnect timeout immediately
+    
     if (window.callDisconnectTimeout) {
         clearTimeout(window.callDisconnectTimeout);
         window.callDisconnectTimeout = null;
@@ -4995,10 +4985,10 @@ function toggleLocalMute() {
 }
 
 function cleanupCallSession(keepDialogOpen = false) {
-    // Reset the user intention flag so next call works normally
+    
     window.userIntentionallEndedCall = false;
     
-    // Clear any pending disconnect timeout
+    
     if (window.callDisconnectTimeout) {
         clearTimeout(window.callDisconnectTimeout);
         window.callDisconnectTimeout = null;
@@ -5029,13 +5019,13 @@ function cleanupCallSession(keepDialogOpen = false) {
 }
 
 function visitUserProfile(userId, userName = 'User') {
-    // Validate inputs
+    
     if (!userId || userId === 'undefined') {
         showToast('❌ Invalid user ID', 'error');
         return;
     }
 
-    // Create a more detailed profile view
+    
     const html = `
         <div style="text-align: center; padding: 20px 0;">
             <div style="width: 100px; height: 100px; background: linear-gradient(135deg, var(--primary-color), #4752c4); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 48px; color: white;">
@@ -5102,7 +5092,7 @@ function sendFriendRequest(userId, userName = 'User') {
     });
 }
 
-// ==================== MEDIA PREVIEW FUNCTIONALITY ====================
+
 
 let copiedMediaItems = [];
 
@@ -5144,7 +5134,7 @@ function closeMediaPreview() {
     document.getElementById('mediaPreviewPanel').classList.remove('show');
 }
 
-// ==================== FRIEND SEARCH FUNCTIONALITY ====================
+
 
 function filterFriends(searchText) {
     const channelsList = document.getElementById('channelsList');
@@ -5162,7 +5152,7 @@ function filterFriends(searchText) {
     });
 }
 
-// ==================== ARCHIVE SINGLE MESSAGE ====================
+
 
 let archivedMessages = JSON.parse(localStorage.getItem('archivedMessages') || '[]');
 
@@ -5183,7 +5173,7 @@ function archiveSingleMessage(messageId, messageDiv) {
     archivedMessages.push(messageData);
     localStorage.setItem('archivedMessages', JSON.stringify(archivedMessages));
     
-    // Add archive animation
+    
     messageDiv.style.transition = 'all 0.4s ease';
     messageDiv.style.opacity = '0.5';
     messageDiv.style.transform = 'translateX(-20px)';

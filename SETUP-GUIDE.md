@@ -190,7 +190,7 @@ You can use either:
 ### JWT Secret
 Change the `JWT_SECRET` in `.env` to a secure random string for production:
 ```bash
-# Generate a secure key
+
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 

@@ -1,11 +1,11 @@
 #!/bin/bash
-# Quick Start Guide
+
 
 echo "🚀 Discord-Like Chat App - Quick Start"
 echo "======================================"
 echo ""
 
-# Check Node.js
+
 if ! command -v node &> /dev/null; then
     echo "❌ Node.js is not installed. Please install from https://nodejs.org/"
     exit 1
@@ -15,7 +15,7 @@ echo "✅ Node.js: $(node --version)"
 echo "✅ npm: $(npm --version)"
 echo ""
 
-# Check MongoDB
+
 if ! command -v mongod &> /dev/null; then
     echo "⚠️  MongoDB not found in PATH"
     echo "   Make sure MongoDB is running separately!"

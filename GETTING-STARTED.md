@@ -167,11 +167,11 @@ PORT=8080
 ## Command Reference
 
 ```powershell
-npm install              # Install dependencies
-npm start                # Start production server
-npm run dev              # Start dev server (auto-reload)
-npm run init-db          # Add sample shop items
-npm run https            # Setup HTTPS (if needed)
+npm install              
+npm start                
+npm run dev             
+npm run init-db          
+npm run https           
 ```
 
 ## Environment Variables

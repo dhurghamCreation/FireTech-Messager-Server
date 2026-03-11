@@ -27,7 +27,7 @@
             --danger: #f04747;
         }
 
-        /* Light Theme */
+        
         [data-theme="light"] {
             --primary-color: #5865f2;
             --secondary-color: #99aab5;
@@ -50,7 +50,7 @@
             overflow: hidden;
         }
 
-        /* ==================== LOGIN PAGE ==================== */
+        
         .auth-container {
             position: fixed;
             top: 0;
@@ -187,7 +187,7 @@
             cursor: pointer;
         }
 
-        /* ==================== MAIN LAYOUT ==================== */
+        
         .main-container {
             display: grid;
             grid-template-columns: 72px 240px 1fr 240px;
@@ -199,7 +199,7 @@
             display: none;
         }
 
-        /* ==================== GUILD SIDEBAR ==================== */
+        
         .guild-sidebar {
             background: var(--sidebar-bg);
             display: flex;
@@ -241,7 +241,7 @@
             margin: 8px 0;
         }
 
-        /* ==================== CHANNEL SIDEBAR ==================== */
+        
         .channel-sidebar {
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border-color);
@@ -348,7 +348,7 @@
             font-weight: bold;
         }
 
-        /* ==================== MAIN CHAT AREA ==================== */
+        
         .chat-area {
             position: relative;
             display: flex;
@@ -431,7 +431,7 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        /* Hide native scrollbar (custom scrollbar is used) */
+        
         #messages-container::-webkit-scrollbar {
             width: 0;
             height: 0;
@@ -682,7 +682,7 @@
             cursor: pointer;
         }
 
-        /* Scroll buttons removed - using WhatsApp scrollbar instead */
+        
 
         .input-area {
             padding: 16px 24px;
@@ -735,7 +735,7 @@
             display: none;
         }
 
-        /* ==================== RIGHT SIDEBAR (MEMBERS/USERS) ==================== */
+        
         .members-sidebar {
             background: var(--sidebar-bg);
             border-left: 1px solid var(--border-color);
@@ -784,7 +784,7 @@
             background: var(--text-secondary);
         }
 
-        /* ==================== PROFILE PANEL ==================== */
+        
         .profile-panel {
             position: fixed;
             right: 0;
@@ -1076,7 +1076,7 @@
             to { opacity: 0; transform: translateX(100%); }
         }
 
-        /* ==================== STICKER & GIF PICKER - INTEGRATED ==================== */
+        
         .picker-panel {
             position: absolute;
             bottom: 60px;
@@ -1147,7 +1147,7 @@
             object-fit: cover;
         }
 
-        /* ==================== VOICE RECORDER ==================== */
+        
         .voice-recorder {
             position: absolute;
             bottom: 70px;
@@ -1216,7 +1216,7 @@
             color: var(--danger);
         }
 
-        /* ====================SETTINGS PANEL ==================== */
+       
         .settings-panel {
             position: fixed;
             top: 0;
@@ -1367,7 +1367,7 @@
             transform: translateX(20px);
         }
 
-        /* ==================== MODAL ==================== */
+        
         .modal {
             position: fixed;
             top: 0;
@@ -1396,7 +1396,7 @@
             overflow-y: auto;
         }
 
-        /* ==================== SCROLLBAR ==================== */
+       
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -1414,7 +1414,7 @@
             background: #5a5d60;
         }
 
-        /* ==================== MOBILE BOTTOM NAV ==================== */
+        
         .mobile-bottom-nav {
             display: none;
             position: fixed;
@@ -1430,7 +1430,7 @@
             box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
         }
 
-        /* ==================== MOBILE MEMBERS PANEL ==================== */
+        
         .mobile-members-panel {
             position: fixed;
             right: -100%;
@@ -1512,7 +1512,7 @@
             text-align: center;
         }
 
-        /* ==================== RESPONSIVE ==================== */
+       
         @media (max-width: 1200px) {
             .main-container {
                 grid-template-columns: 72px 240px 1fr;
@@ -1532,7 +1532,7 @@
             }
         }
 
-        /* ==================== MOBILE ADAPTIVE LAYOUT ==================== */
+        
         @media (max-width: 768px) {
             body {
                 overflow: hidden;
@@ -1545,7 +1545,7 @@
                 max-height: -webkit-fill-available;
             }
 
-            /* Mobile Guild Sidebar - Compact */
+            
             .guild-sidebar {
                 padding: 2px 0;
                 width: 45px;
@@ -1581,7 +1581,7 @@
                 display: flex;
             }
 
-            /* Mobile overlay for sidebar */
+            
             .channel-sidebar.show::before {
                 content: '';
                 position: fixed;
@@ -1593,7 +1593,7 @@
                 z-index: -1;
             }
 
-            /* Mobile Chat Area */
+            
             .chat-area {
                 height: 100vh;
                 height: 100dvh;
@@ -1641,7 +1641,7 @@
                 display: none;
             }
 
-            /* Mobile Messages Container */
+           
             #messages-container {
                 flex: 1;
                 min-height: 0;
@@ -1674,7 +1674,7 @@
                 max-width: 90%;
             }
 
-            /* Mobile Input Area */
+            
             .input-area {
                 padding: 12px 16px;
                 gap: 8px;
@@ -1694,7 +1694,7 @@
                 flex-shrink: 0;
             }
 
-            /* Mobile Scroll Rail */
+            
             .chat-scroll-rail {
                 right: 4px;
                 top: 64px;
@@ -1706,7 +1706,7 @@
                 min-height: 40px;
             }
 
-            /* Mobile Panels */
+            
             .picker-panel {
                 width: 100%;
                 left: 0;
@@ -1727,7 +1727,7 @@
                 padding: 8px;
             }
 
-            /* Mobile Settings Panel */
+            
             .settings-panel {
                 width: 100%;
                 right: -100%;
@@ -1762,7 +1762,7 @@
                 border-bottom-color: var(--primary-color);
             }
 
-            /* Mobile Toasts */
+            
             .toast-container {
                 top: 10px;
                 right: 10px;
@@ -1774,18 +1774,17 @@
                 padding: 12px 16px;
             }
 
-            /* Mobile Profile Panel */
+            
             .profile-panel {
                 width: 100%;
             }
 
-            /* Hide members sidebar completely on mobile */
             .members-sidebar {
                 display: none !important;
             }
         }
 
-        /* ==================== CUSTOM DIALOG MODAL ==================== */
+        
         .custom-dialog {
             position: fixed;
             top: 0;
@@ -1903,7 +1902,7 @@
             transform: translateY(-2px);
         }
 
-        /* ==================== COMMUNITY MEMBERS MODAL ==================== */
+        
         .community-modal {
             position: fixed;
             top: 0;
@@ -1975,7 +1974,7 @@
             background: rgba(255, 193, 7, 0.1);
         }
 
-        /* ==================== FRIEND SEARCH BAR ==================== */
+        
         .friend-search-container {
             padding: 12px 16px;
             border-bottom: 1px solid var(--border-color);
@@ -2011,7 +2010,7 @@
             font-size: 14px;
         }
 
-        /* ==================== QR CODE MODAL ==================== */
+        
         .qr-modal {
             position: fixed;
             top: 0;
@@ -2082,7 +2081,7 @@
             transform: translateY(-2px);
         }
 
-        /* ==================== MEDIA PREVIEW PANEL ==================== */
+        
         .media-preview-panel {
             position: fixed;
             bottom: -100%;
@@ -2165,14 +2164,14 @@
             object-fit: cover;
         }
 
-        /* ==================== ENHANCED HOVER EFFECTS ==================== */
+        
         .danger-hover:hover {
             color: var(--danger) !important;
             transform: scale(1.08);
             filter: drop-shadow(0 0 8px rgba(240, 71, 71, 0.6));
         }
 
-        /* Keep text white on danger button hover */
+        
         .save-btn.danger-hover:hover {
             color: white !important;
             transform: scale(1.02) !important;
@@ -2190,7 +2189,7 @@
             filter: drop-shadow(0 0 8px rgba(88, 101, 242, 0.6));
         }
 
-        /* ==================== MOBILE RESPONSIVENESS IMPROVEMENTS ==================== */
+        
         @media (max-width: 768px) {
             .custom-dialog-content {
                 min-width: 90%;
@@ -2213,7 +2212,7 @@
         }
 
         @media (max-width: 480px) {
-            /* Mobile layout: full-width chat area, hidden sidebars */
+            
             .main-container {
                 grid-template-columns: 1fr;
                 height: calc(100vh - 68px);
@@ -2271,7 +2270,7 @@
                 display: inline-block;
             }
 
-            /* Overlay for sidebar */
+            
             .sidebar-overlay {
                 display: none;
                 position: fixed;
@@ -2296,7 +2295,7 @@
                 max-width: 100%;
             }
 
-            /* Ensure chat header is visible and doesn't get cut off */
+            
             .chat-header {
                 padding: 12px 16px;
                 flex-shrink: 0;
@@ -2328,7 +2327,7 @@
                 display: none;
             }
 
-            /* Message container on mobile */
+            
             #messages-container {
                 flex: 1;
                 min-height: 0;
@@ -2350,7 +2349,7 @@
                 min-width: 32px;
             }
 
-            /* Input area on mobile */
+           
             .message-input-area {
                 flex-shrink: 0;
                 padding: 12px 16px;
@@ -2372,7 +2371,6 @@
                 font-size: 14px;
             }
 
-            /* Scrollbar adjustment */
             .chat-scroll-rail {
                 right: 4px;
                 width: 8px;
@@ -2391,7 +2389,7 @@
                 width: 100%;
             }
 
-            /* Profile panel adjustments */
+            
             .profile-panel {
                 position: fixed;
                 left: 0;
@@ -2407,7 +2405,6 @@
                 border-radius: 0;
             }
 
-            /* Friends modal adjustments */
             .friends-modal {
                 position: fixed;
                 left: 0;
@@ -2444,7 +2441,7 @@
     </style>
 </head>
 <body>
-    <!-- AUTH CONTAINER -->
+    
     <div class="auth-container" id="authContainer">
         <div class="auth-box">
             <h2 id="authTitle">Login</h2>
@@ -2485,9 +2482,9 @@
         </div>
     </div>
 
-    <!-- MAIN APP -->
+    
     <div class="main-container" id="mainApp">
-        <!-- GUILD SIDEBAR -->
+        
         <div class="guild-sidebar">
             <div class="guild-item active" onclick="showSection('chat')" title="Chat">
                 <i class="fas fa-comment"></i>
@@ -2510,7 +2507,7 @@
             </div>
         </div>
 
-        <!-- CHANNEL SIDEBAR -->
+        
         <div class="channel-sidebar" id="channelSidebar">
             <div class="sidebar-header">
                 <h3>FireTech</h3>
@@ -2531,11 +2528,11 @@
                 </div>
             </div>
             <div class="channels-list" id="channelsList">
-                <!-- Direct messages will be populated here by loadFriendsForDM() -->
+                
             </div>
         </div>
 
-        <!-- CHAT AREA -->
+        
         <div class="chat-area">
             <div class="chat-header">
                 <div class="chat-header-left">
@@ -2545,7 +2542,7 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.3.0</span>
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.3.1</span>
                     <button class="header-btn" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
@@ -2617,14 +2614,14 @@
             </div>
         </div>
 
-        <!-- MEMBERS SIDEBAR -->
+        
         <div class="members-sidebar">
             <div class="members-header">👥 Online Members</div>
             <div class="members-list" id="membersList"></div>
         </div>
     </div>
 
-    <!-- PROFILE PANEL -->
+  
     <div class="profile-panel" id="profilePanel">
         <button class="profile-close" onclick="closeProfile()"><i class="fas fa-times"></i></button>
         <div class="profile-header">
@@ -2638,7 +2635,7 @@
                 <button class="tab-btn" onclick="switchProfileTab('inventory')">Inventory</button>
             </div>
 
-            <!-- Profile Tab -->
+            
             <div class="tab-content active" id="profileTab">
                 <div class="form-field">
                     <label>Profile Picture</label>
@@ -2666,14 +2663,13 @@
                 <button class="save-btn" onclick="saveProfile()">Save Profile</button>
             </div>
 
-            <!-- Inventory Tab -->
+            
             <div class="tab-content" id="inventoryTab">
                 <div id="inventoryList"></div>
             </div>
         </div>
     </div>
 
-    <!-- FRIENDS MODAL -->
     <div class="modal hidden" id="friendsModal">
         <div class="modal-content">
             <h2><i class="fas fa-users"></i> Friends & Friend Requests</h2>
@@ -2685,7 +2681,7 @@
         </div>
     </div>
 
-    <!-- SHOP MODAL -->
+   
     <div class="modal hidden" id="shopModal">
         <div class="modal-content">
             <h2><i class="fas fa-store"></i> Shop</h2>
@@ -2695,21 +2691,21 @@
         </div>
     </div>
 
-    <!-- TOAST NOTIFICATIONS -->
+   
     <div class="toast-container" id="toastContainer"></div>
 
-    <!-- STICKER/GIF PICKER -->
+    
     <div class="picker-panel" id="pickerPanel">
         <div class="picker-tabs">
             <button class="picker-tab active" onclick="switchPickerTab('stickers')">😀 Stickers</button>
             <button class="picker-tab" onclick="switchPickerTab('gifs')">🎬 GIFs</button>
         </div>
         <div class="picker-content" id="pickerContent">
-            <!-- Will be populated by JS -->
+            
         </div>
     </div>
 
-    <!-- VOICE RECORDER -->
+    
     <div class="voice-recorder" id="voiceRecorder">
         <div class="record-timer" id="recordTimer">00:00</div>
         <button class="record-button" id="recordButton" onclick="toggleRecording()">
@@ -2725,7 +2721,7 @@
         </div>
     </div>
 
-    <!-- SETTINGS PANEL -->
+    
     <div class="settings-panel" id="settingsPanel">
         <div class="settings-header">
             <h2>⚙️ Settings</h2>
@@ -2741,7 +2737,7 @@
                 <div class="settings-nav-item" onclick="switchSettingsTab('stats')">📊 Statistics</div>
             </div>
             <div class="settings-content">
-                <!-- Account Settings -->
+               
                 <div class="settings-section active" id="accountSettings">
                     <h3>Account Settings</h3>
                     <div class="settings-item">
@@ -2768,7 +2764,7 @@
                     </div>
                 </div>
 
-                <!-- Privacy Settings -->
+               
                 <div class="settings-section" id="privacySettings">
                     <h3>Privacy & Safety</h3>
                     <div class="settings-item">
@@ -2795,7 +2791,7 @@
                     </div>
                 </div>
 
-                <!-- Chat Settings -->
+                
                 <div class="settings-section" id="chatSettings">
                     <h3>Chat Settings</h3>
                     <div class="settings-item">
@@ -2837,7 +2833,7 @@
                     </div>
                 </div>
 
-                <!-- Notification Settings -->
+                
                 <div class="settings-section" id="notificationSettings">
                     <h3>Notifications</h3>
                     <div class="settings-item">
@@ -2879,7 +2875,7 @@
                     </div>
                 </div>
 
-                <!-- Appearance Settings -->
+                
                 <div class="settings-section" id="appearanceSettings">
                     <h3>Appearance</h3>
                     <div class="settings-item">
@@ -2939,7 +2935,7 @@
                     </div>
                 </div>
                 
-                <!-- Statistics Settings -->
+                
                 <div class="settings-section" id="statsSettings">
                     <h3>📊 Your Statistics</h3>
                     <div class="settings-item" style="padding: 20px; background: var(--bg-color); border-radius: 8px;">
@@ -2973,7 +2969,7 @@
         </div>
     </div>
 
-    <!-- COMMUNITIES MODAL -->
+    
     <div class="modal hidden" id="communitiesModal">
         <div class="modal-content">
             <h2><i class="fas fa-globe"></i> Communities</h2>
@@ -2983,7 +2979,7 @@
         </div>
     </div>
 
-    <!-- GROUPS MODAL -->
+   
     <div class="modal hidden" id="groupsModal">
         <div class="modal-content">
             <h2><i class="fas fa-user-group"></i> Groups</h2>
@@ -2994,7 +2990,7 @@
 
     </div>
 
-    <!-- COMMUNITY DETAILS MODAL -->
+    
     <div class="community-modal" id="communityDetailsModal">
         <div class="community-modal-content">
             <div class="community-modal-header">
@@ -3005,7 +3001,7 @@
         </div>
     </div>
 
-    <!-- QR CODE MODAL -->
+   
     <div class="qr-modal" id="qrModal">
         <div class="qr-modal-content">
             <h2 class="qr-modal-title">📱 Friend Request QR Code</h2>
@@ -3018,7 +3014,7 @@
         </div>
     </div>
 
-    <!-- MEDIA PREVIEW PANEL -->
+    
     <div class="media-preview-panel" id="mediaPreviewPanel">
         <div class="media-preview-header">
             <h3 class="media-preview-title">📸 Copied Media</h3>
@@ -3027,11 +3023,11 @@
             </button>
         </div>
         <div class="media-preview-content" id="mediaPreviewContent">
-            <!-- Copied media will be displayed here -->
+            
         </div>
     </div>
 
-    <!-- MOBILE BOTTOM NAVIGATION -->
+   
     <div class="mobile-bottom-nav" id="mobileBottomNav">
         <button class="mobile-nav-item active" onclick="showMobileSection('chats')" data-section="chats">
             <i class="fas fa-comment"></i>
@@ -3055,10 +3051,10 @@
         </button>
     </div>
 
-    <!-- SIDEBAR OVERLAY FOR MOBILE -->
+    
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
 
-    <!-- MOBILE MEMBERS PANEL -->
+    
     <div class="mobile-members-panel" id="mobileMembersPanel">
         <div class="mobile-members-header">
             <h3>👥 Online Members</h3>
@@ -3067,11 +3063,11 @@
             </button>
         </div>
         <div class="mobile-members-list" id="mobileMembersList">
-            <!-- Members will be populated here -->
+            
         </div>
     </div>
 
-    <!-- CUSTOM DIALOG MODAL (replaces alert/confirm/prompt) -->
+    
     <div id="customDialog" style="display: none;"></div>
 
     <script src="/socket.io/socket.io.js"></script>

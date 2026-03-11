@@ -164,7 +164,7 @@ New-NetFirewallRule -DisplayName "Chat App HTTPS" -Direction Inbound -LocalPort 
 cd C:\Users\dell\Downloads\message
 taskkill /F /IM node.exe
 
-# Replace 192.168.56.1 with your actual LAN IP
+
 $cert = New-SelfSignedCertificate `
   -Subject "CN=localhost" `
   -CertStoreLocation "Cert:\CurrentUser\My" `
@@ -339,7 +339,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 ### Adjust Message History
 Edit `server.js`:
 ```javascript
-const MAX_HISTORY = 50; // Change to desired number
+const MAX_HISTORY = 50; 
 ```
 
 ## 📝 Features in Detail

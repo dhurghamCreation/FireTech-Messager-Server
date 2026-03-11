@@ -14,7 +14,7 @@ require('dotenv').config();
 
 const app = express();
 
-// Configure CORS
+
 const cors = require('cors');
 const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean) : ['*'];
 
@@ -42,7 +42,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Middleware
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
@@ -67,8 +66,6 @@ app.get('/api/version', (req, res) => {
   }
 });
 
-// ======================== DATABASE CONNECTION ========================
-
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/discord-app';
 const isLocalConnection = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
 
@@ -79,7 +76,7 @@ const sequelize = new Sequelize(connectionString, {
   dialectOptions: isLocalConnection ? {} : { ssl: { require: true, rejectUnauthorized: false } }
 });
 
-// ======================== MODELS ========================
+
 
 const User = sequelize.define('User', {
   id: {
@@ -215,7 +212,7 @@ const DirectMessage = sequelize.define('DirectMessage', {
   mediaUrl: DataTypes.TEXT
 });
 
-// ======================== ASSOCIATIONS ========================
+
 
 User.belongsToMany(User, {
   as: 'friends',
@@ -245,7 +242,7 @@ FriendRequest.belongsTo(User, { as: 'to', foreignKey: 'toId' });
 DirectMessage.belongsTo(User, { as: 'sender', foreignKey: 'fromId' });
 DirectMessage.belongsTo(User, { as: 'recipient', foreignKey: 'toId' });
 
-// ======================== AUTH MIDDLEWARE ========================
+
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -260,7 +257,7 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// ======================== AUTH ROUTES ========================
+
 
 app.post('/api/register', async (req, res) => {
   try {
@@ -355,7 +352,6 @@ app.post('/api/reset-password', async (req, res) => {
   }
 });
 
-// ======================== PROFILE ROUTES ========================
 
 app.get('/api/profile/:userId', authenticateToken, async (req, res) => {
   try {
@@ -457,7 +453,7 @@ app.post('/api/profile/upload', authenticateToken, async (req, res) => {
   }
 });
 
-// ======================== FRIENDS ROUTES ========================
+
 
 app.post('/api/friends/request', authenticateToken, async (req, res) => {
   try {
@@ -583,7 +579,7 @@ app.get('/api/friends', authenticateToken, async (req, res) => {
   }
 });
 
-// ======================== DIRECT MESSAGES ROUTES ========================
+
 
 app.get('/api/dms/:friendId', authenticateToken, async (req, res) => {
   try {
@@ -658,7 +654,7 @@ app.delete('/api/dms/:friendId', authenticateToken, async (req, res) => {
       }
     });
 
-    // Notify the other user to clear their chat UI as well
+    
     emitToUser(friendId, 'dm history cleared', {
       fromUserId: req.user.userId,
       clearedAt: new Date().toISOString()
@@ -670,7 +666,7 @@ app.delete('/api/dms/:friendId', authenticateToken, async (req, res) => {
   }
 });
 
-// ======================== SHOP ROUTES ========================
+
 
 app.get('/api/shop', authenticateToken, async (req, res) => {
   try {
@@ -713,7 +709,7 @@ app.get('/api/inventory', authenticateToken, async (req, res) => {
   }
 });
 
-// ======================== SOCKET.IO ========================
+
 
 function createServer(appInstance) {
   const pfxPath = process.env.SSL_PFX_PATH;
@@ -862,7 +858,7 @@ io.on('connection', (socket) => {
         timestamp: dm.createdAt
       };
 
-      // Always deliver directly to both users so messages arrive even if a DM room isn't currently joined.
+      
       emitToUser(socket.userId, 'dm message', dmPayload);
       const deliveredToRecipient = emitToUser(toUserId, 'dm message', dmPayload);
 
@@ -1176,7 +1172,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// ======================== INITIALIZATION ========================
 
 function getLocalNetworkAddress() {
   const interfaces = os.networkInterfaces();
@@ -1193,10 +1188,10 @@ function getLocalNetworkAddress() {
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-// Migrate ENUM types for media support
+
 async function migrateMediaTypeEnum() {
   try {
-    // Check if we need to update the ENUM type
+    
     const [results] = await sequelize.query(`
       SELECT EXISTS (
         SELECT 1 FROM pg_type t 
@@ -1209,7 +1204,7 @@ async function migrateMediaTypeEnum() {
     if (!results[0].has_voice) {
       console.log('📦 Migrating mediaType ENUM to include sticker, gif, voice...');
       
-      // PostgreSQL requires special handling for ENUM changes
+      
       await sequelize.query(`
         ALTER TYPE "enum_DirectMessages_mediaType" ADD VALUE IF NOT EXISTS 'sticker';
         ALTER TYPE "enum_DirectMessages_mediaType" ADD VALUE IF NOT EXISTS 'gif';

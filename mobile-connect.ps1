@@ -1,12 +1,11 @@
-# Complete automated mobile connection setup
-# Run as Administrator
+
 
 Write-Host "╔════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║  Mobile Connection Setup - Complete   ║" -ForegroundColor Cyan
 Write-Host "╚════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
-# Step 1: Get Wi-Fi IP
+
 Write-Host "Finding your PC Wi-Fi IP address..." -ForegroundColor Yellow
 $wifiIP = $null
 try {
@@ -26,14 +25,14 @@ if (!$wifiIP) {
 Write-Host "Found Wi-Fi IP: $wifiIP" -ForegroundColor Green
 Write-Host ""
 
-# Step 2: Kill existing Node
+
 Write-Host "Stopping existing servers..." -ForegroundColor Yellow
 taskkill /F /IM node.exe 2>$null | Out-Null
 Start-Sleep -Seconds 2
 Write-Host "OK - Stopped" -ForegroundColor Green
 Write-Host ""
 
-# Step 3: Ensure certificate exists
+
 Write-Host "Checking certificate..." -ForegroundColor Yellow
 $pfxPath = "C:\Users\dell\Downloads\message\certs\lan-localhost.pfx"
 if (!(Test-Path $pfxPath)) {
@@ -44,7 +43,7 @@ if (!(Test-Path $pfxPath)) {
 Write-Host "OK - Certificate ready" -ForegroundColor Green
 Write-Host ""
 
-# Step 4: Add firewall rule
+
 Write-Host "Adding firewall rule..." -ForegroundColor Yellow
 try {
     Remove-NetFirewallRule -DisplayName "Chat App 3001" -ErrorAction SilentlyContinue
@@ -55,7 +54,7 @@ try {
 }
 Write-Host ""
 
-# Step 5: Start server
+
 Write-Host "Starting server..." -ForegroundColor Yellow
 Write-Host ""
 

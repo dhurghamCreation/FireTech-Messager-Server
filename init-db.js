@@ -66,15 +66,15 @@ const defaultItems = [
 
 async function initializeDatabase() {
   try {
-    // Clear existing items
+    
     await ShopItem.deleteMany({});
     console.log('Cleared existing shop items');
 
-    // Insert new items
+    
     await ShopItem.insertMany(defaultItems);
     console.log(`✅ Successfully added ${defaultItems.length} shop items to database`);
 
-    // List all items
+    
     const items = await ShopItem.find();
     console.log('\n📦 Shop Items:');
     items.forEach(item => {
