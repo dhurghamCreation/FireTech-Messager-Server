@@ -1,0 +1,10 @@
+curl -fsSL https://railway.app/install.sh | sh
+
+railway login
+
+
+cd ~/FireTech-Messager-Server
+railway link
+
+
+railway up
