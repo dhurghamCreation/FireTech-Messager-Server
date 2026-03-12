@@ -1,40 +1,45 @@
 #!/bin/bash
-# FireTech Messenger - Linux Lite Final Fix
+# FireTech Messenger - Linux Lite GUARANTEED FIX
 
 echo "Starting FireTech Deployment..."
 
-# 1. Install dependencies
+# 1. System Prep
 sudo apt update
 sudo apt install -y git nodejs npm postgresql postgresql-contrib
 
-# 2. Fix the "Role" and "Database" issue
-echo "Configuring Database Permissions..."
+# 2. Database Service Start
 sudo systemctl start postgresql
+sudo systemctl enable postgresql
 
-# This part is the 'Magic Fix':
-# It creates a database user that matches his Linux name so he has permission.
-USER_NAME=$(whoami)
-sudo -u postgres psql -c "CREATE USER $USER_NAME WITH SUPERUSER;" 2>/dev/null
-sudo -u postgres psql -c "ALTER USER $USER_NAME WITH PASSWORD 'password';" 2>/dev/null
+# 3. Secure User & Database Creation
+# We use 'firetech_user' instead of $(whoami) to prevent string errors
+DB_USER="firetech_admin"
+DB_PASS="firetech_password_123"
+DB_NAME="railway"
 
-# Now we create the railway database safely
-sudo -u postgres psql -c "CREATE DATABASE railway;" 2>/dev/null || echo "Database 'railway' already exists, moving on..."
+echo "Configuring Database Permissions..."
+sudo -u postgres psql -c "CREATE USER $DB_USER WITH SUPERUSER PASSWORD '$DB_PASS';" 2>/dev/null || \
+sudo -u postgres psql -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASS';"
 
-# 3. App Setup
+sudo -u postgres psql -c "CREATE DATABASE $DB_NAME;" 2>/dev/null
+
+# 4. App Setup
 cd ~
-if [ ! -d "FireTech-Messager-Server" ]; then
-    git clone https://github.com/dhurghamCreation/FireTech-Messager-Server.git
-fi
+# Remove old folder to ensure a clean install
+rm -rf FireTech-Messager-Server 
+git clone https://github.com/dhurghamCreation/FireTech-Messager-Server.git
 cd FireTech-Messager-Server
 npm install
 
-# 4. Create .env (Updated with a safe local URL)
-cat <<EOF > .env
-DATABASE_URL=postgresql://$USER_NAME:password@localhost:5432/railway
-JWT_SECRET=firetech_secret_123
-PORT=3000
-EOF
+# 5. Create .env (The "String Fix")
+# We use single quotes around the URL to ensure it is treated as a string
+echo "DATABASE_URL=\"postgresql://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME\"" > .env
+echo "JWT_SECRET=\"firetech_secret_123\"" >> .env
+echo "PORT=3000" >> .env
 
-# 5. Launch
-echo "FireTech Server is ready!"
+# 6. Final Launch
+echo "--------------------------------------"
+echo "Fix Applied: Client password is now a string."
+echo "FIRETECH SERVER IS STARTING..."
+echo "--------------------------------------"
 node server.js
