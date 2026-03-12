@@ -1,0 +1,41 @@
+Paste this in (Tell him to replace yourdomain.com with his actual domain or IP):
+
+Nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location / {
+        proxy_pass http://localhost:3000; # This points to your Node.js app
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+Save and Exit (Ctrl+O, Enter, Ctrl+X).
+
+Link the file and restart Nginx:
+
+Bash
+sudo ln -s /etc/nginx/sites-available/firetech /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+Step 3: Get the SSL Certificate (The "HTTPS" part)
+We use Certbot (from Let's Encrypt) to get the certificate for free.
+
+Bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com
+Certbot will ask for an email and then automatically update the Nginx file to enable HTTPS.
+
+Important: Local vs. Public
+If he is on a Local Network: You cannot easily get a "Real" HTTPS certificate for a local IP (like 192.168...). He would have to use a Self-Signed Certificate, but the browser will show a "Danger" warning.
+
+If he is Public: He must have a domain name pointed to his IP address for the script above to work.
+
+How this affects the Logo/Brand
+In your FireTech promotional video, showing https:// in the browser bar is a "Trust Signal." It shows that your messenger isn't just fast and "on fire," but also secure.
+
+Would you like me to show you how to add a "Secure Padlock" icon animation in After Effects that clicks shut next to your Phoenix logo?
