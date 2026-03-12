@@ -1,0 +1,41 @@
+#!/bin/bash
+# FireTech Messenger - Linux Lite Auto-Deployer
+
+echo "Starting FireTech Deployment..."
+
+# 1. Update and Install (Using apt instead of pacman)
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y git nodejs npm postgresql postgresql-contrib sudo nano
+
+# 2. Setup Database
+echo "Configuring PostgreSQL..."
+# Linux Lite uses systemctl to manage services
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+# Create the 'railway' database
+# We use -u postgres to run the command as the database admin
+sudo -u postgres createdb railway || echo "Database 'railway' already exists."
+
+# 3. Clone and Install App
+cd ~
+# Only clone if the folder doesn't exist
+if [ ! -d "FireTech-Messager-Server" ]; then
+    git clone https://github.com/dhurghamCreation/FireTech-Messager-Server.git
+fi
+cd FireTech-Messager-Server
+npm install
+
+# 4. Create .env Configuration
+echo "Writing environment variables..."
+cat <<EOF > .env
+DATABASE_URL=postgresql://postgres@localhost:5432/railway
+JWT_SECRET=firetech_secret_123
+PORT=3000
+EOF
+
+# 5. Start Server
+echo "-----------------------------------"
+echo "FIRETECH SERVER IS STARTING..."
+echo "-----------------------------------"
+node server.js
