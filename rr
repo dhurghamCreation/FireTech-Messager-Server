@@ -1,0 +1,10 @@
+sudo chown -R $USER:$USER ~
+
+
+
+sudo dpkg --configure -a
+sudo apt install -f
+
+
+sudo pkill -u $USER node
+sudo systemctl restart postgresql
