@@ -380,8 +380,8 @@ This project is open source and available for personal and commercial use.
 
 ##  Developer
 
-Created with  using modern web technologies.
+Created by Dhurgham Alsaadi using modern web technologies.
 
 ---
 
-**Enjoy chatting! 💬✨**
+**Enjoy chatting!**
