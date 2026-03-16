@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discord-Like Chat App</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E💬%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -187,6 +188,15 @@
             cursor: pointer;
         }
 
+        .auth-status {
+            margin-top: 12px;
+            font-size: 13px;
+            min-height: 18px;
+            color: var(--text-secondary);
+            text-align: center;
+            line-height: 1.35;
+        }
+
         
         .main-container {
             display: grid;
@@ -247,6 +257,7 @@
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
+            min-height: 0;
         }
 
         .sidebar-header {
@@ -272,9 +283,49 @@
 
         .channels-list {
             flex: 1;
-            overflow-y: scroll;
+            overflow-y: auto;
             padding: 8px 0;
             scrollbar-gutter: stable;
+            min-height: 0;
+            padding-bottom: 24px;
+        }
+
+        .archived-modal-content {
+            background: var(--chat-bg);
+            padding: 20px;
+            border-radius: 10px;
+            width: min(95vw, 900px);
+            max-height: 88vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 16px 44px rgba(0,0,0,0.55);
+            border: 1px solid var(--border-color);
+        }
+
+        .archived-modal-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding-right: 4px;
+            min-height: 260px;
+            scrollbar-gutter: stable;
+            overscroll-behavior: contain;
+        }
+
+        .archived-modal-list::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .archived-modal-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
+            border-radius: 8px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+
+        .archived-modal-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
         }
 
         .channel-item {
@@ -285,6 +336,17 @@
             align-items: center;
             gap: 10px;
             transition: all 0.2s ease;
+            min-width: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .channel-label {
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .channel-item:hover {
@@ -346,6 +408,10 @@
             color: var(--text-secondary);
             font-size: 12px;
             font-weight: bold;
+            position: relative;
+            background: var(--sidebar-bg);
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
         }
 
         
@@ -401,6 +467,20 @@
             transition: all 0.2s ease;
         }
 
+        @keyframes headerFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2px); }
+        }
+
+        .chat-header-actions .header-btn {
+            animation: headerFloat 3.6s ease-in-out infinite;
+        }
+
+        .chat-header-actions .header-btn:nth-child(2) { animation-delay: 0.25s; }
+        .chat-header-actions .header-btn:nth-child(3) { animation-delay: 0.5s; }
+        .chat-header-actions .header-btn:nth-child(4) { animation-delay: 0.75s; }
+        .chat-header-actions .header-btn:nth-child(5) { animation-delay: 1s; }
+
         .header-btn:hover {
             color: var(--text-primary);
         }
@@ -421,6 +501,7 @@
             flex: 1;
             min-height: 0;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 16px 24px;
             padding-right: 44px;
             padding-bottom: 24px;
@@ -479,6 +560,8 @@
             animation: fadeIn 0.2s ease;
             scroll-snap-align: end;
             scroll-snap-stop: always;
+            min-width: 0;
+            max-width: 100%;
         }
 
         @keyframes fadeIn {
@@ -501,6 +584,8 @@
 
         .message-content {
             flex: 1;
+            min-width: 0;
+            max-width: 100%;
         }
 
         .message-header {
@@ -598,12 +683,16 @@
         .message-text {
             color: var(--text-primary);
             line-height: 1.5;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            max-width: 100%;
         }
 
         .message-media {
             margin-top: 8px;
             border-radius: 8px;
             max-width: 400px;
+            width: min(100%, 400px);
             overflow: hidden;
         }
 
@@ -799,21 +888,290 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            visibility: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            touch-action: pan-y;
+            pointer-events: none;
         }
 
         .profile-panel.show {
             transform: translateX(0);
+            visibility: visible;
+            pointer-events: auto;
         }
 
-        .profile-close {
+        /* ==================== PROFILE BANNER ==================== */
+        .profile-banner-wrap {
+            position: relative;
+            width: 100%;
+                height: 160px;
+            background: linear-gradient(135deg, var(--primary-color), #4752c4);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .profile-banner-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .profile-banner-edit-btn {
             position: absolute;
-            top: 12px;
-            right: 12px;
-            background: none;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0,0,0,0.55);
             border: none;
-            color: var(--text-secondary);
+            color: white;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .profile-banner-edit-btn:hover { background: rgba(0,0,0,0.85); }
+
+        /* ==================== CALL OVERLAY ==================== */
+        #callOverlay {
+            position: fixed;
+            inset: 0;
+            background: #0a0a0a;
+            z-index: 10000;
+            display: none;
+            flex-direction: column;
+        }
+        #callOverlay.active { display: flex; }
+        #remoteCallVideo, #localCallVideo, #localCallVideoOld {
+            display: block;
+        }
+        .call-overlay-header {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            padding: 16px 20px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.75), transparent);
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .call-overlay-controls {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            padding: 24px 20px 32px;
+            background: linear-gradient(0deg, rgba(0,0,0,0.75), transparent);
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            z-index: 2;
+        }
+        .call-ctrl-btn {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.18);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
             font-size: 24px;
             cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .call-ctrl-btn:hover { background: rgba(255,255,255,0.35); transform: scale(1.08); }
+        .call-ctrl-btn.muted { background: rgba(240,71,71,0.5); border-color: #f04747; }
+        .call-ctrl-btn.cam-off { background: rgba(240,71,71,0.5); border-color: #f04747; }
+        .call-end-btn {
+            width: 72px; height: 72px;
+            background: #f04747;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 26px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .call-end-btn:hover { background: #c0392b; transform: scale(1.1); }
+        #callDebugPanel {
+            position: absolute;
+            top: 80px; right: 10px;
+            background: rgba(0,0,0,0.88);
+            color: #00ff88;
+            font-size: 11px;
+            padding: 12px;
+            border-radius: 8px;
+            z-index: 3;
+            min-width: 230px;
+            font-family: monospace;
+            border: 1px solid #00ff88;
+            display: none;
+        }
+        #callDebugPanel .dbg-row { margin-bottom: 4px; }
+
+        /* ==================== NOTIFICATION PANEL ==================== */
+        .notif-bell-btn {
+            position: relative;
+        }
+        .notif-badge {
+            position: absolute;
+            top: -3px; right: -3px;
+            background: #f04747;
+            color: white;
+            border-radius: 50%;
+            width: 16px; height: 16px;
+            font-size: 9px;
+            font-weight: 700;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .notif-badge.visible { display: flex; }
+        #notifPanel {
+            position: fixed;
+            top: 0; right: -360px;
+            width: 340px;
+            max-height: 100vh;
+            background: var(--chat-bg);
+            border-left: 1px solid var(--border-color);
+            z-index: 1050;
+            transition: right 0.3s ease;
+            overflow-y: auto;
+            box-shadow: -4px 0 24px rgba(0,0,0,0.4);
+            display: flex; flex-direction: column;
+        }
+        #notifPanel.show { right: 0; }
+        .notif-panel-header {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0;
+            background: var(--chat-bg);
+            z-index: 2;
+        }
+        .notif-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .notif-item:hover { background: var(--bg-color); }
+        .notif-item.notif-unread { background: rgba(88,101,242,0.1); border-left: 3px solid var(--primary-color); }
+        .notif-item-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+        .notif-item-body { font-size: 12px; color: var(--text-secondary); }
+        .notif-item-time { font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
+
+        /* ==================== UPLOAD SPINNER ==================== */
+        .upload-progress-bar {
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-color), #4752c4);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s ease;
+            position: absolute;
+            top: 0; left: 0; right: 0;
+        }
+        .upload-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            z-index: 5;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-ring {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        .input-area { position: relative; }
+        .input-upload-spinner {
+            position: absolute;
+            top: -2px; left: 0; right: 0;
+            height: 3px;
+            background: var(--bg-color);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .input-upload-spinner-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--success), var(--primary-color));
+            background-size: 200% 100%;
+            animation: shimmerSlide 1s linear infinite;
+            width: 100%;
+        }
+        @keyframes shimmerSlide {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* ==================== HOVER EFFECTS ==================== */
+        .message { transition: background 0.15s; border-radius: 8px; padding: 4px 6px; }
+        .message:hover { background: rgba(255,255,255,0.04); }
+        .friend-item { transition: all 0.18s ease; }
+        .friend-item:hover { transform: translateX(3px); box-shadow: -3px 0 0 var(--primary-color); }
+        .guild-item { transition: all 0.2s; }
+        .guild-item:hover:not(.active) { border-radius: 16px; background: var(--primary-color); transform: scale(1.05); }
+        .header-btn { transition: all 0.18s; }
+        .header-btn:hover { background: rgba(255,255,255,0.12); transform: scale(1.1); border-radius: 6px; }
+        .input-btn { transition: all 0.18s; }
+        .input-btn:hover { background: rgba(88,101,242,0.18); color: var(--primary-color); transform: scale(1.1); }
+        .tab-btn { transition: all 0.18s; }
+        .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.07); }
+        .secondary-btn { transition: all 0.18s; }
+        .secondary-btn:hover { background: rgba(88,101,242,0.2); transform: translateY(-1px); box-shadow: 0 3px 10px rgba(88,101,242,0.25); }
+        .save-btn { transition: all 0.18s; }
+        .save-btn:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 3px 12px rgba(88,101,242,0.3); }
+        .message-action-btn { transition: all 0.18s; }
+        .message-action-btn:hover { background: var(--primary-color) !important; color: white; transform: scale(1.15); }
+        .mobile-nav-item { transition: all 0.2s; }
+        .mobile-nav-item:hover, .mobile-nav-item.active { color: var(--primary-color); }
+        .settings-nav-item { transition: all 0.15s; }
+        .settings-nav-item:hover { background: rgba(88,101,242,0.15); color: var(--primary-color); }
+
+        /* ==================== GROUPS MODAL ENHANCEMENTS ==================== */
+        .groups-search { width: 100%; padding: 10px 14px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px; margin-bottom: 12px; }
+        .groups-search:focus { outline: none; border-color: var(--primary-color); }
+        .group-card {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 16px;
+            background: var(--bg-color);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s;
+        }
+        .group-card:hover { border-color: var(--primary-color); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+        .group-avatar { width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, var(--primary-color), #4752c4); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+        .group-info { flex: 1; min-width: 0; }
+        .group-name { font-weight: 700; font-size: 15px; }
+        .group-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+        .group-members-count { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+        .create-group-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--primary-color), #4752c4); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 15px; font-weight: 700; margin-bottom: 14px; transition: all 0.2s; }
+        .create-group-btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+
+        .profile-close {
+            position: sticky;
+            top: 8px;
+            z-index: 100;
+            align-self: flex-end;
+            margin: 8px 10px -44px 0;
+            background: rgba(0,0,0,0.55);
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.2s;
         }
 
         .profile-header {
@@ -849,6 +1207,9 @@
         .profile-content {
             padding: 24px;
             flex: 1;
+            min-height: 0;
+            overflow: visible;
+            padding-bottom: 34px;
         }
 
         .tab-buttons {
@@ -954,6 +1315,36 @@
             align-items: center;
         }
 
+        .shop-hero {
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: linear-gradient(135deg, rgba(88,101,242,0.28), rgba(67,181,129,0.15));
+        }
+
+        .shop-hero-title {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .shop-hero-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .shop-hero-discount {
+            margin-top: 10px;
+            display: inline-flex;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #ff7b54, #ffb347);
+        }
+
         .shop-item-name {
             font-weight: 600;
             font-size: 14px;
@@ -973,6 +1364,67 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 12px;
+        }
+
+        .buy-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .orb-card {
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            background: var(--bg-color);
+            margin-bottom: 10px;
+        }
+
+        .saved-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            margin: 0 8px 8px 0;
+            font-size: 12px;
+        }
+
+        .orb-none {
+            --orb-glow: transparent;
+        }
+
+        .orb-aurora {
+            --primary-color: #57c7ff;
+            --secondary-color: #3d6f9a;
+            --orb-glow: rgba(87, 199, 255, 0.35);
+        }
+
+        .orb-neon-pulse {
+            --primary-color: #42e695;
+            --secondary-color: #1f8c58;
+            --orb-glow: rgba(66, 230, 149, 0.35);
+        }
+
+        .orb-ocean-mist {
+            --primary-color: #5fa8ff;
+            --secondary-color: #2e5384;
+            --orb-glow: rgba(95, 168, 255, 0.3);
+        }
+
+        .orb-ember {
+            --primary-color: #ff8f5e;
+            --secondary-color: #8b3b1d;
+            --orb-glow: rgba(255, 143, 94, 0.35);
+        }
+
+        .orb-aurora .profile-avatar,
+        .orb-neon-pulse .profile-avatar,
+        .orb-ocean-mist .profile-avatar,
+        .orb-ember .profile-avatar {
+            box-shadow: 0 0 0 6px var(--orb-glow);
+            transition: box-shadow 0.3s ease;
         }
 
         .friend-item {
@@ -1087,14 +1539,24 @@
             border-radius: 8px 8px 0 0;
             box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
             display: none;
-            flex-direction: column;
-            z-index: 100;
-            border: 1px solid var(--border-color);
-            border-bottom: none;
+            z-index: 1002;
+            overflow: hidden;
         }
 
         .picker-panel.show {
             display: flex;
+            flex-direction: column;
+        }
+
+        .profile-close:hover { background: rgba(255,255,255,0.25); }
+
+        #profileBackdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 999;
+            cursor: pointer;
         }
 
         .picker-tabs {
@@ -1621,6 +2083,11 @@
                 display: none;
             }
 
+            .build-badge.mobile-essential {
+                display: inline-flex;
+                align-items: center;
+            }
+
             .header-btn {
                 font-size: 16px;
                 padding: 8px;
@@ -1629,16 +2096,15 @@
             .chat-header-actions {
                 gap: 4px;
                 flex-wrap: nowrap;
+                overflow-x: auto;
+                max-width: 56vw;
+                scrollbar-width: thin;
             }
 
             .chat-header-actions .header-btn {
                 padding: 6px;
-            }
-
-            .chat-header-actions button:nth-of-type(1),
-            .chat-header-actions button:nth-of-type(3),
-            .chat-header-actions button:nth-of-type(7) {
-                display: none;
+                min-width: 32px;
+                flex-shrink: 0;
             }
 
            
@@ -1676,21 +2142,25 @@
 
             
             .input-area {
-                padding: 12px 16px;
-                gap: 8px;
+                padding: 10px 8px;
+                gap: 6px;
                 flex-shrink: 0;
                 border-top: 2px solid var(--border-color);
+                display: grid;
+                grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
+                align-items: center;
             }
 
             .input-area input {
                 font-size: 16px;
-                padding: 10px 14px;
+                padding: 9px 12px;
+                min-width: 0;
             }
 
             .input-btn {
-                width: 40px;
-                height: 40px;
-                font-size: 16px;
+                width: 36px;
+                height: 36px;
+                font-size: 14px;
                 flex-shrink: 0;
             }
 
@@ -2191,6 +2661,16 @@
 
         
         @media (max-width: 768px) {
+            .chat-header-actions .header-btn {
+                animation: none !important;
+            }
+
+            .friend-item:hover,
+            .group-card:hover {
+                transform: none;
+                box-shadow: none;
+            }
+
             .custom-dialog-content {
                 min-width: 90%;
                 padding: 24px;
@@ -2235,6 +2715,9 @@
             .profile-panel {
                 width: 100vw;
                 right: -100vw;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
             }
 
             .profile-panel.show {
@@ -2262,12 +2745,19 @@
             }
 
             .channel-sidebar .sidebar-header > div button {
-                display: none;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
             }
 
-            .channel-sidebar .sidebar-header > div button:nth-child(3),
-            .channel-sidebar .sidebar-header > div button:nth-child(5) {
-                display: inline-block;
+            .channel-sidebar .sidebar-header {
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+
+            .channel-sidebar .sidebar-header h3 {
+                font-size: 15px;
+                white-space: nowrap;
             }
 
             
@@ -2313,14 +2803,25 @@
             .chat-header-actions {
                 gap: 4px;
                 flex-shrink: 0;
+                overflow-x: auto;
+                max-width: 66vw;
+                padding-bottom: 2px;
             }
 
             .chat-header-actions button {
-                display: none;
+                display: inline-flex;
+                flex-shrink: 0;
+                min-width: 30px;
+                min-height: 30px;
             }
 
             .chat-header-actions .mobile-essential {
                 display: inline-flex;
+            }
+
+            .build-badge.mobile-essential {
+                display: inline-flex !important;
+                flex-shrink: 0;
             }
 
             .build-badge {
@@ -2395,14 +2896,18 @@
                 left: 0;
                 top: 0;
                 width: 100vw;
-                height: 100vh;
-                z-index: 1000;
+                height: 100dvh;
+                z-index: 2601;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior: contain;
             }
 
             .profile-content {
                 width: 100%;
                 max-width: none;
                 border-radius: 0;
+                padding-bottom: 120px;
             }
 
             .friends-modal {
@@ -2476,6 +2981,7 @@
                 </div>
                 <button type="button" class="auth-mini-button" onclick="resetForgottenPassword()">Reset Password</button>
             </div>
+            <div id="authStatus" class="auth-status" aria-live="polite"></div>
             <div class="auth-toggle">
                 <span>Don't have an account? <button type="button" onclick="toggleAuthMode()">Register</button></span>
             </div>
@@ -2542,8 +3048,8 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.3.3</span>
-                    <button class="header-btn" onclick="toggleArchiveChat()" title="Archive chat">
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.6.3</span>
+                    <button class="header-btn mobile-essential" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
                     <button class="header-btn mobile-essential" onclick="startVideoCall()" title="Video call">
@@ -2552,10 +3058,10 @@
                     <button class="header-btn mobile-essential" onclick="togglePinCurrentChat()" title="Pin/Unpin chat" id="pinChatBtn">
                         <i class="fas fa-thumbtack"></i>
                     </button>
-                    <button class="header-btn success" onclick="addCurrentChatToList()" title="Add chat to list">
+                    <button class="header-btn success mobile-essential" onclick="addCurrentChatToList()" title="Add chat to list">
                         <i class="fas fa-bookmark"></i>
                     </button>
-                    <button class="header-btn danger-hover mobile-essential" onclick="closeCurrentChat()" title="Close Chat" id="closeChatBtn" style="display: none;">
+                    <button class="header-btn danger-hover mobile-essential" onclick="clearAndCloseCurrentChat()" title="Clear and Close Chat" id="closeChatBtn" style="display: none;">
                         <i class="fas fa-times-circle"></i>
                     </button>
                     <button class="header-btn mobile-essential" onclick="toggleMobileMembers()" title="View members">
@@ -2566,6 +3072,10 @@
                     </button>
                     <button class="header-btn mobile-essential" onclick="openSettings()" title="Settings">
                         <i class="fas fa-cog"></i>
+                    </button>
+                    <button class="header-btn mobile-essential notif-bell-btn" onclick="openNotifPanel()" title="Notifications">
+                        <i class="fas fa-bell"></i>
+                        <span class="notif-badge" id="notifBadge">0</span>
                     </button>
                     <button class="header-btn mobile-essential" onclick="openProfile()" title="Profile">
                         <i class="fas fa-user-circle"></i>
@@ -2596,8 +3106,8 @@
                 <button class="input-btn" onclick="document.getElementById('fileInput').click()" title="Upload Image">
                     <i class="fas fa-image"></i>
                 </button>
-                <button class="input-btn" onclick="document.getElementById('videoInput').click()" title="Upload Video">
-                    <i class="fas fa-video"></i>
+                <button class="input-btn" onclick="document.getElementById('videoInput').click()" title="Upload Video / Reel">
+                    <i class="fas fa-film"></i>
                 </button>
                 <button class="input-btn" onclick="togglePicker()" title="Stickers & GIFs">
                     <i class="fas fa-smile"></i>
@@ -2610,7 +3120,7 @@
                     <i class="fas fa-paper-plane"></i>
                 </button>
                 <input type="file" id="fileInput" class="input-file" onchange="handleFileUpload(event)" accept="image/*" multiple>
-                <input type="file" id="videoInput" class="input-file" onchange="handleFileUpload(event)" accept="video/*" multiple>
+                <input type="file" id="videoInput" class="input-file" onchange="handleFileUpload(event)" accept="video/mp4,video/webm,video/ogg,video/*" multiple>
             </div>
         </div>
 
@@ -2622,8 +3132,15 @@
     </div>
 
   
+    <div id="profileBackdrop" onclick="closeProfile()"></div>
+
+  
     <div class="profile-panel" id="profilePanel">
         <button class="profile-close" onclick="closeProfile()"><i class="fas fa-times"></i></button>
+        <div class="profile-banner-wrap" id="profileBannerWrap">
+            <img id="profileBannerImg" class="profile-banner-img" src="" alt="" style="display:none;">
+            <button class="profile-banner-edit-btn" onclick="openBannerPicker()">🖼 Edit Banner</button>
+        </div>
         <div class="profile-header">
             <div class="profile-avatar" id="profileAvatar">U</div>
             <div class="profile-name" id="profileName">Username</div>
@@ -2633,6 +3150,8 @@
             <div class="tab-buttons">
                 <button class="tab-btn active" onclick="switchProfileTab('profile', this)">Profile</button>
                 <button class="tab-btn" onclick="switchProfileTab('inventory', this)">Inventory</button>
+                <button class="tab-btn" onclick="switchProfileTab('orbs', this)">Orbs</button>
+                <button class="tab-btn" onclick="switchProfileTab('saved', this)">Saved</button>
             </div>
 
             
@@ -2667,6 +3186,30 @@
             <div class="tab-content" id="inventoryTab">
                 <div id="inventoryList"></div>
             </div>
+
+            <div class="tab-content" id="orbsTab">
+                <div class="orb-card">
+                    <label for="orbEffectSelect" style="display:block; font-size:12px; font-weight:700; margin-bottom:8px;">Orb Effect Theme</label>
+                    <select id="orbEffectSelect" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border-color); background:var(--chat-bg); color:var(--text-primary);" onchange="applyOrbEffect(this.value)">
+                        <option value="none">None</option>
+                        <option value="aurora">Aurora Glow</option>
+                        <option value="neon_pulse">Neon Pulse</option>
+                        <option value="ocean_mist">Ocean Mist</option>
+                        <option value="ember">Ember Flame</option>
+                    </select>
+                    <p style="font-size:12px; color: var(--text-secondary); margin-top:8px;">Choose a profile orb effect. Changes apply instantly and are saved to your account locally.</p>
+                </div>
+            </div>
+
+            <div class="tab-content" id="savedTab">
+                <div style="margin-bottom:10px; color:var(--text-secondary); font-size:12px;">Your saved and archived content overview</div>
+                <div>
+                    <span class="saved-pill">🖼 Saved Media: <strong id="savedMediaCount">0</strong></span>
+                    <span class="saved-pill">📦 Archived Messages: <strong id="savedArchivedCount">0</strong></span>
+                </div>
+                <button class="secondary-btn" onclick="openMediaPreview()" style="margin-top:8px;">Open Saved Media Vault</button>
+                <button class="secondary-btn" onclick="showArchivedMessages()" style="margin-top:8px;">Open Archive Center</button>
+            </div>
         </div>
     </div>
 
@@ -2674,9 +3217,9 @@
         <div class="modal-content">
             <h2><i class="fas fa-users"></i> Friends & Friend Requests</h2>
             <h3 style="margin-top: 20px; margin-bottom: 10px;">Pending Requests</h3>
-            <div id="friendRequests"></div>
+            <div id="friendRequests" style="max-height: 22vh; overflow-y: auto;"></div>
             <h3 style="margin-top: 20px; margin-bottom: 10px;">Your Friends</h3>
-            <div id="friendsList"></div>
+            <div id="friendsList" style="max-height: 36vh; overflow-y: auto;"></div>
             <button class="save-btn" onclick="closeFriendsModal()" style="margin-top: 20px;">Close</button>
         </div>
     </div>
@@ -2691,14 +3234,26 @@
         </div>
     </div>
 
+    <div class="modal hidden" id="archivedChatsModal">
+        <div class="archived-modal-content">
+            <h2 style="margin-bottom:6px;"><i class="fas fa-box-archive"></i> Archived Chats</h2>
+            <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 8px;">Open, unarchive, or delete chats in one place.</p>
+            <div id="archivedChatsList" class="archived-modal-list"></div>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button class="save-btn" style="background: var(--danger);" onclick="clearArchivedChats();">🗑 Clear All</button>
+                <button class="secondary-btn" onclick="closeArchivedChatsModal();">Close</button>
+            </div>
+        </div>
+    </div>
+
    
     <div class="toast-container" id="toastContainer"></div>
 
     
     <div class="picker-panel" id="pickerPanel">
         <div class="picker-tabs">
-            <button class="picker-tab active" onclick="switchPickerTab('stickers')">😀 Stickers</button>
-            <button class="picker-tab" onclick="switchPickerTab('gifs')">🎬 GIFs</button>
+            <button class="picker-tab active" onclick="switchPickerTab('stickers', this)">😀 Stickers</button>
+            <button class="picker-tab" onclick="switchPickerTab('gifs', this)">🎬 GIFs</button>
         </div>
         <div class="picker-content" id="pickerContent">
             
@@ -2971,23 +3526,25 @@
 
     
     <div class="modal hidden" id="communitiesModal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width:600px; max-height:80vh; overflow-y:auto;">
             <h2><i class="fas fa-globe"></i> Communities</h2>
             <p style="margin-top: 10px; color: var(--text-secondary);">Join public communities to discover people with shared interests.</p>
-            <div id="communitiesList" style="margin-top: 16px;"></div>
+            <input class="groups-search" placeholder="🔍 Search communities..." oninput="filterCommunitiesList(this.value)">
+            <div id="communitiesList" style="margin-top: 6px;"></div>
             <button class="save-btn" onclick="closeCommunitiesModal()" style="margin-top: 20px;">Close</button>
         </div>
     </div>
 
    
     <div class="modal hidden" id="groupsModal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width:600px; max-height:80vh; overflow-y:auto;">
             <h2><i class="fas fa-user-group"></i> Groups</h2>
             <p style="margin-top: 10px; color: var(--text-secondary);">Create and manage your own small group chats.</p>
-            <div id="groupsList" style="margin-top: 16px;"></div>
+            <button class="create-group-btn" onclick="createNewGroup(); closeGroupsModal();" style="margin-top:14px;">➕ Create New Group</button>
+            <input class="groups-search" placeholder="🔍 Search groups..." oninput="filterGroupsList(this.value)">
+            <div id="groupsList" style="margin-top: 4px;"></div>
             <button class="save-btn" onclick="closeGroupsModal()" style="margin-top: 20px;">Close</button>
         </div>
-
     </div>
 
     
@@ -3070,9 +3627,47 @@
     
     <div id="customDialog" style="display: none;"></div>
 
+    <!-- ========== FULL-SCREEN CALL OVERLAY ========== -->
+    <div id="callOverlay">
+        <video id="remoteCallVideo" autoplay playsinline style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0;"></video>
+        <video id="localCallVideo" autoplay muted playsinline style="position:absolute; bottom:110px; right:14px; width:110px; height:150px; border-radius:12px; border:2px solid rgba(255,255,255,0.6); object-fit:cover; z-index:2;"></video>
+
+        <div class="call-overlay-header">
+            <div>
+                <div id="callOverlayPeerName" style="color:#fff; font-size:18px; font-weight:700;"></div>
+                <div id="callTimerLabel" style="color:rgba(255,255,255,0.7); font-size:13px; margin-top:4px;">00:00:00</div>
+            </div>
+            <button onclick="toggleCallDebug()" style="background:rgba(255,255,255,0.18); border:none; color:white; padding:7px 13px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:600;">🔧 Debug</button>
+        </div>
+
+        <div id="callDebugPanel"></div>
+
+        <div class="call-overlay-controls">
+            <button id="muteBtn" class="call-ctrl-btn" onclick="toggleLocalMute()" title="Mute/Unmute">🎤</button>
+            <button id="cameraBtn" class="call-ctrl-btn" onclick="toggleCallCamera()" title="Camera on/off">📷</button>
+            <button class="call-end-btn" onclick="endVideoCall()" title="End Call">📵</button>
+        </div>
+    </div>
+
+    <!-- ========== NOTIFICATION PANEL ========== -->
+    <div id="notifPanel">
+        <div class="notif-panel-header">
+            <span style="font-weight:700; font-size:16px;">🔔 Notifications</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button onclick="clearAllNotifications()" style="background:none; border:none; color:var(--text-secondary); font-size:12px; cursor:pointer; padding:4px 8px; border-radius:4px; transition:all 0.15s;" onmouseover="this.style.background='var(--bg-color)'" onmouseout="this.style.background='none'">Clear all</button>
+                <button onclick="closeNotifPanel()" style="background:none; border:none; color:var(--text-secondary); font-size:20px; cursor:pointer; line-height:1;">×</button>
+            </div>
+        </div>
+        <div id="notifList" style="flex:1;">
+            <div style="padding:30px; text-align:center; color:var(--text-secondary);">No notifications yet</div>
+        </div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="client.js?v=2.2.9"></script>
+    <script src="client.js?v=2.6.2"></script>
 </body>
 </html>
+
+
 
