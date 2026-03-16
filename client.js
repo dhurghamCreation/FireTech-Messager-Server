@@ -1059,7 +1059,7 @@ function connectSocket() {
                 }
             }
 
-            if (signal.type === 'ice-candidate' && peerConnection && signal.candidate) {
+            if (signal.type === 'ice-candidate' && signal.candidate) {
                 await addOrQueueIceCandidate(signal.candidate);
             }
         } catch (error) {
@@ -6458,15 +6458,14 @@ async function startCallSession(peerName, peerId, isCaller) {
     currentCallPeerId = peerId;
     currentCallPeerName = peerName;
     callIceFailureCount = 0;
+    await ensureRtcConfigLoaded();
     forceRelayOnly = rtcRuntimeConfig?.iceTransportPolicy === 'relay';
-    pendingRemoteIceCandidates = [];
 
     openCallDialog(peerName);
     // Start timer from session start to avoid "stuck at 00:00" perception on unstable networks.
     if (!callTimerInterval) {
         startCallTimer();
     }
-    await ensureRtcConfigLoaded();
     try {
         await ensureLocalCallStream();
     } catch (mediaError) {
