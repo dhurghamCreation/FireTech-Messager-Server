@@ -1055,6 +1055,19 @@
             display: none;
         }
         #callDebugPanel .dbg-row { margin-bottom: 4px; }
+        #callDebugPanel .dbg-log {
+            margin-top: 8px;
+            max-height: 180px;
+            overflow-y: auto;
+            border-top: 1px solid rgba(0,255,136,0.35);
+            padding-top: 8px;
+            color: #c7ffd9;
+        }
+        #callDebugPanel .dbg-log div {
+            margin-bottom: 4px;
+            line-height: 1.35;
+            word-break: break-word;
+        }
 
         /* ==================== NOTIFICATION PANEL ==================== */
         .notif-bell-btn {
@@ -3098,7 +3111,7 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.8.3</span>
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.8.4</span>
                     <button class="header-btn mobile-essential" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
@@ -3687,6 +3700,7 @@
                 <div>
                     <div id="callOverlayPeerName" style="color:#fff; font-size:18px; font-weight:700;"></div>
                     <div id="callTimerLabel" style="color:rgba(255,255,255,0.7); font-size:13px; margin-top:4px;">00:00:00</div>
+                    <div id="callStatusLabel" style="color:#8fffc2; font-size:12px; margin-top:4px;">Preparing call...</div>
                 </div>
                 <button id="callDebugBtn" style="background:rgba(255,255,255,0.18); border:none; color:white; padding:7px 13px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:600;">🔧 Debug</button>
             </div>
@@ -3717,7 +3731,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="client.js?v=2.8.3"></script>
+    <script src="client.js?v=2.8.4"></script>
 </body>
 </html>
 

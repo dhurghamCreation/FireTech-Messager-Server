@@ -33,6 +33,7 @@ let forceRelayOnly = false;
 let pendingIceRecoveryTimer = null;
 let pendingRelayFallbackTimer = null;
 let pendingRemoteIceCandidates = [];
+let callEventLog = [];
 let hasUserInteractedWithPage = false;
 let activeRoomSubscription = null;
 let roomMessages = JSON.parse(localStorage.getItem('roomMessages') || '{}');
@@ -364,6 +365,22 @@ function ensureLocalPreviewPlayback(videoEl) {
     tryPlay();
     setTimeout(tryPlay, 120);
     setTimeout(tryPlay, 500);
+}
+
+function appendCallLog(message) {
+    const entry = `[${new Date().toLocaleTimeString()}] ${message}`;
+    callEventLog.push(entry);
+    if (callEventLog.length > 20) {
+        callEventLog = callEventLog.slice(-20);
+    }
+    refreshCallDebug();
+}
+
+function setCallStatus(statusText) {
+    const statusLabel = document.getElementById('callStatusLabel');
+    if (statusLabel) {
+        statusLabel.textContent = statusText || '';
+    }
 }
 
 let callControlBindingsDone = false;
@@ -6111,34 +6128,24 @@ function openVideoCallModal(targetName, targetId, callType) {
     targetName = targetName || currentChatContext.name || 'User';
     targetId = targetId || currentChatContext.id;
     callType = callType || 'Video Call';
-    
-    const html = `
-        <div style="text-align: center; padding: 20px;">
-            <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 60px; animation: pulse 2s infinite;">
-                📞
-            </div>
-            <h3 style="margin: 15px 0; color: var(--text-primary); font-size: 24px;">${callType}</h3>
-            <p style="margin: 10px 0; color: var(--text-secondary); font-size: 16px;">Calling <strong style="color: var(--primary-color);">${targetName}</strong></p>
-            <p style="margin: 20px 0; color: var(--text-secondary); font-size: 14px; font-style: italic;">🔊 Ringing...</p>
-            <div style="margin-top: 30px; padding: 15px; background: rgba(88, 101, 242, 0.1); border-radius: 8px; border: 1px solid var(--primary-color);">
-                <p style="color: var(--text-secondary); font-size: 13px; margin: 0;">💡 <strong>Video Call Ready!</strong></p>
-                <p style="color: var(--text-secondary); font-size: 12px; margin: 8px 0 0 0;">Waiting for the other user to accept...</p>
-            </div>
-            <button onclick="endVideoCall();" style="margin-top: 20px; padding: 12px 30px; background: var(--danger); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
-                ❌ Cancel Call
-            </button>
-        </div>
-        <style>
-            @keyframes pulse {
-                0%, 100% { transform: scale(1); }
-                50% { transform: scale(1.05); }
+    openCallDialog(targetName);
+    setCallStatus('Dialing...');
+    appendCallLog(`Outgoing ${callType.toLowerCase()} to ${targetName}`);
+
+    ensureRtcConfigLoaded()
+        .then(() => ensureLocalCallStream())
+        .then(() => {
+            const localVideo = document.getElementById('localCallVideo');
+            if (localVideo && localCallStream) {
+                localVideo.srcObject = localCallStream;
+                ensureLocalPreviewPlayback(localVideo);
+                appendCallLog('Local preview started before answer');
             }
-        </style>
-    `;
-    
-    customAlert(html, '📞 Video Call', '📞');
-    
-   
+        })
+        .catch((error) => {
+            appendCallLog(`Local preview unavailable: ${error?.message || error}`);
+        });
+
     if (socket && socket.connected && targetId) {
         socket.emit('start video call', { 
             targetId: targetId, 
@@ -6147,6 +6154,7 @@ function openVideoCallModal(targetName, targetId, callType) {
         });
         activeCallState = { callId: null, peerId: targetId, direction: 'outgoing' };
         showToast(`📞 Calling ${targetName}...`, 'success');
+        appendCallLog('Call request emitted to signaling server');
     }
 }
 
@@ -6170,6 +6178,7 @@ function handleIncomingVideoCall(payload) {
 
         if (accepted) {
             stopIncomingCallAlert();
+            appendCallLog(`Accepted incoming call from ${callerName}`);
             socket.emit('accept video call', {
                 callId: activeCallState.callId,
                 toId: activeCallState.peerId
@@ -6325,6 +6334,7 @@ function createPeerConnection(peerId) {
         if (event.track && remoteCallStream) {
             if (!remoteCallStream.getTrackById(event.track.id)) {
                 remoteCallStream.addTrack(event.track);
+                appendCallLog(`Remote ${event.track.kind} track received`);
             }
         }
         const remoteVideo = document.getElementById('remoteCallVideo');
@@ -6353,9 +6363,12 @@ function createPeerConnection(peerId) {
             return;
         }
         if (peerConnection.connectionState === 'connecting') {
+            setCallStatus('Connecting...');
             showToast('📞 Connecting call...', 'info');
         } else if (peerConnection.connectionState === 'connected') {
             callIceFailureCount = 0;
+            setCallStatus('Connected');
+            appendCallLog('Peer connection connected');
             showToast('📞 Call connected!', 'success');
             // Start timer only if not already running (avoids resetting a running clock)
             if (!callTimerInterval) {
@@ -6374,6 +6387,8 @@ function createPeerConnection(peerId) {
                 }
             }
         } else if (peerConnection.connectionState === 'failed') {
+            setCallStatus('Connection failed');
+            appendCallLog('Peer connection failed, starting recovery');
             showCallWarningThrottled('⚠️ Network issue detected, retrying call connection...');
             attemptIceRecovery(peerId);
         } else if (peerConnection.connectionState === 'closed') {
@@ -6385,6 +6400,7 @@ function createPeerConnection(peerId) {
     peerConnection.oniceconnectionstatechange = () => {
         if (!peerConnection) return;
         console.log('ICE connection state:', peerConnection.iceConnectionState);
+        appendCallLog(`ICE state: ${peerConnection.iceConnectionState}`);
 
         if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
             callIceFailureCount = 0;
@@ -6412,6 +6428,7 @@ function createPeerConnection(peerId) {
                         iceTransportPolicy: 'all'
                     });
                     showToast('Retrying call with mixed network mode...', 'warning');
+                    appendCallLog('Fallback from relay-only to mixed mode');
                     attemptIceRecovery(peerId);
                 } catch (fallbackError) {
                     console.warn('Relay fallback failed:', fallbackError);
@@ -6460,8 +6477,10 @@ function createPeerConnection(peerId) {
                     iceTransportPolicy: 'relay'
                 });
                 showToast('Switching call to relay mode for network compatibility...', 'warning');
+                appendCallLog('Switching to relay mode for recovery');
             } else if (callIceFailureCount >= 2 && !hasTurnServersConfigured) {
                 showToast('Retrying call without relay fallback...', 'warning');
+                appendCallLog('No TURN available, retrying direct ICE only');
             }
 
             peerConnection.restartIce?.();
@@ -6473,6 +6492,7 @@ function createPeerConnection(peerId) {
                     offerToReceiveVideo: true
                 });
                 await peerConnection.setLocalDescription(recoveryOffer);
+                appendCallLog('ICE restart offer created and sent');
 
                 socket.emit('video signal', {
                     toId: recoveryPeerId,
@@ -6491,14 +6511,19 @@ function openCallDialog(peerName) {
     const overlay = document.getElementById('callOverlay');
     if (overlay) {
         overlay.classList.toggle('desktop-window', window.innerWidth > 700);
+        callEventLog = [];
         document.getElementById('callOverlayPeerName').textContent = `📞 ${peerName}`;
         document.getElementById('callTimerLabel').textContent = '00:00:00';
+        setCallStatus('Preparing call...');
         const muteBtn = document.getElementById('muteBtn');
         if (muteBtn) { muteBtn.textContent = '🎤'; muteBtn.classList.remove('muted'); }
         const camBtn = document.getElementById('cameraBtn');
         if (camBtn) { camBtn.textContent = '📷'; camBtn.classList.remove('cam-off'); }
         isCallCameraOff = false;
         overlay.classList.add('active');
+        const dbg = document.getElementById('callDebugPanel');
+        if (dbg) dbg.style.display = 'block';
+        appendCallLog(`Call window opened for ${peerName}`);
     }
 }
 
@@ -6515,6 +6540,7 @@ async function startCallSession(peerName, peerId, isCaller) {
     callIceFailureCount = 0;
     await ensureRtcConfigLoaded();
     forceRelayOnly = rtcRuntimeConfig?.iceTransportPolicy === 'relay';
+    appendCallLog(`Starting session as ${isCaller ? 'caller' : 'callee'}`);
 
     openCallDialog(peerName);
     // Start timer from session start to avoid "stuck at 00:00" perception on unstable networks.
@@ -6527,6 +6553,7 @@ async function startCallSession(peerName, peerId, isCaller) {
         // Do not abort the call - continue in receive-only mode so user can still hear/see remote party.
         console.warn('Local media unavailable, continuing receive-only call:', mediaError);
         localCallStream = null;
+        appendCallLog(`Local media unavailable: ${mediaError?.message || mediaError}`);
         showToast('Starting call in receive-only mode (local camera/mic unavailable)', 'warning');
     }
 
@@ -6539,6 +6566,7 @@ async function startCallSession(peerName, peerId, isCaller) {
     }
 
     createPeerConnection(peerId);
+    appendCallLog('Peer connection created');
 
     if (isCaller && peerConnection) {
         makingOffer = true;
@@ -6548,6 +6576,7 @@ async function startCallSession(peerName, peerId, isCaller) {
                 offerToReceiveVideo: true
             });
             await peerConnection.setLocalDescription(offer);
+            appendCallLog('Offer created and sent');
             socket.emit('video signal', {
                 toId: peerId,
                 callId: activeCallState?.callId,
@@ -6564,9 +6593,11 @@ async function startCallSession(peerName, peerId, isCaller) {
         pendingSignalOffer = null;
         try {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(po.offer));
+            appendCallLog('Pending remote offer applied');
             await flushQueuedIceCandidates();
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
+            appendCallLog('Answer created for pending offer');
             socket.emit('video signal', {
                 toId: po.fromId,
                 callId: activeCallState?.callId,
@@ -6676,6 +6707,8 @@ function refreshCallDebug() {
         <div class="dbg-row">📺 Remote Video: ${vidState}</div>
         <div class="dbg-row">🔌 Socket: ${socketStr}</div>
         <div class="dbg-row">⏱ Call duration: ${document.getElementById('callTimerLabel')?.textContent || 'n/a'}</div>
+        <div class="dbg-row">📋 Status: ${document.getElementById('callStatusLabel')?.textContent || 'n/a'}</div>
+        <div class="dbg-log">${callEventLog.map((entry) => `<div>${entry}</div>`).join('')}</div>
         <div style="margin-top:8px;">
             <button onclick="forceRestartIce()" style="background:#00ff88;color:#000;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:700;">🔄 Restart ICE</button>
             <button onclick="refreshCallDebug()" style="background:rgba(255,255,255,0.2);color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:10px;margin-left:4px;">↻ Refresh</button>
@@ -6740,6 +6773,8 @@ function cleanupCallSession(keepDialogOpen = false) {
     currentCallPeerId = null;
     currentCallPeerName = null;
     activeCallState = null;
+    callEventLog = [];
+    setCallStatus('');
 
     // Close the overlay
     const overlay = document.getElementById('callOverlay');
