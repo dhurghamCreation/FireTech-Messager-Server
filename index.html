@@ -941,10 +941,30 @@
             z-index: 9999; /* Ensure it's on top of everything */
             display: none;
             touch-action: manipulation; /* Prevents double-tap zoom delay */
+            background: rgba(0,0,0,0.55);
         }
         #callOverlay.active {
             display: flex;
-            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .call-overlay-stage {
+            position: relative;
+            width: min(920px, 100%);
+            height: min(84vh, 720px);
+            border-radius: 18px;
+            overflow: hidden;
+            background: #0f1116;
+            box-shadow: 0 28px 80px rgba(0,0,0,0.55);
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+        #callOverlay:not(.desktop-window) .call-overlay-stage {
+            width: 100%;
+            height: 100%;
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
         }
         #remoteCallVideo, #localCallVideo, #localCallVideoOld {
             display: block;
@@ -1008,6 +1028,18 @@
             -webkit-tap-highlight-color: transparent;
         }
         .call-end-btn:hover { background: #c0392b; transform: scale(1.1); }
+        @media (max-width: 700px) {
+            #callOverlay.active {
+                padding: 0;
+            }
+            .call-overlay-stage {
+                width: 100%;
+                height: 100%;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+            }
+        }
         #callDebugPanel {
             position: absolute;
             top: 80px; right: 10px;
@@ -3066,7 +3098,7 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.8.0</span>
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.8.1</span>
                     <button class="header-btn mobile-essential" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
@@ -3647,23 +3679,25 @@
 
     <!-- ========== FULL-SCREEN CALL OVERLAY ========== -->
     <div id="callOverlay">
-        <video id="remoteCallVideo" autoplay playsinline style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0;"></video>
-        <video id="localCallVideo" autoplay muted playsinline style="position:absolute; bottom:110px; right:14px; width:110px; height:150px; border-radius:12px; border:2px solid rgba(255,255,255,0.6); object-fit:cover; z-index:2;"></video>
+        <div class="call-overlay-stage">
+            <video id="remoteCallVideo" autoplay playsinline style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0;"></video>
+            <video id="localCallVideo" autoplay muted playsinline style="position:absolute; bottom:110px; right:14px; width:110px; height:150px; border-radius:12px; border:2px solid rgba(255,255,255,0.6); object-fit:cover; z-index:2;"></video>
 
-        <div class="call-overlay-header">
-            <div>
-                <div id="callOverlayPeerName" style="color:#fff; font-size:18px; font-weight:700;"></div>
-                <div id="callTimerLabel" style="color:rgba(255,255,255,0.7); font-size:13px; margin-top:4px;">00:00:00</div>
+            <div class="call-overlay-header">
+                <div>
+                    <div id="callOverlayPeerName" style="color:#fff; font-size:18px; font-weight:700;"></div>
+                    <div id="callTimerLabel" style="color:rgba(255,255,255,0.7); font-size:13px; margin-top:4px;">00:00:00</div>
+                </div>
+                <button onclick="toggleCallDebug()" style="background:rgba(255,255,255,0.18); border:none; color:white; padding:7px 13px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:600;">🔧 Debug</button>
             </div>
-            <button onclick="toggleCallDebug()" style="background:rgba(255,255,255,0.18); border:none; color:white; padding:7px 13px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:600;">🔧 Debug</button>
-        </div>
 
-        <div id="callDebugPanel"></div>
+            <div id="callDebugPanel"></div>
 
-        <div class="call-overlay-controls">
-            <button id="muteBtn" class="call-ctrl-btn" onclick="toggleLocalMute()" title="Mute/Unmute">🎤</button>
-            <button id="cameraBtn" class="call-ctrl-btn" onclick="toggleCallCamera()" title="Camera on/off">📷</button>
-            <button class="call-end-btn" onclick="endVideoCall()" title="End Call">📵</button>
+            <div class="call-overlay-controls">
+                <button id="muteBtn" class="call-ctrl-btn" onclick="toggleLocalMute()" title="Mute/Unmute">🎤</button>
+                <button id="cameraBtn" class="call-ctrl-btn" onclick="toggleCallCamera()" title="Camera on/off">📷</button>
+                <button class="call-end-btn" onclick="endVideoCall()" title="End Call">📵</button>
+            </div>
         </div>
     </div>
 
@@ -3683,7 +3717,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="client.js?v=2.8.0"></script>
+    <script src="client.js?v=2.8.1"></script>
 </body>
 </html>
 

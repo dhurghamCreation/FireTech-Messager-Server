@@ -31,6 +31,8 @@ let activeIceServers = [];
 let callIceFailureCount = 0;
 let forceRelayOnly = false;
 let pendingIceRecoveryTimer = null;
+let pendingRelayFallbackTimer = null;
+let pendingRemoteIceCandidates = [];
 let hasUserInteractedWithPage = false;
 let activeRoomSubscription = null;
 let roomMessages = JSON.parse(localStorage.getItem('roomMessages') || '{}');
@@ -2822,7 +2824,13 @@ async function flushQueuedIceCandidates() {
 }
 
 async function addOrQueueIceCandidate(candidateData) {
-    if (!peerConnection || !candidateData) return;
+    if (!candidateData) return;
+
+    // Candidate can arrive before peerConnection exists; keep it for later.
+    if (!peerConnection) {
+        pendingRemoteIceCandidates.push(candidateData);
+        return;
+    }
 
     const candidate = new RTCIceCandidate(candidateData);
     const hasRemoteDescription = Boolean(peerConnection.remoteDescription && peerConnection.remoteDescription.type);
@@ -6238,6 +6246,17 @@ function createPeerConnection(peerId) {
         peerConnection.addTransceiver('video', { direction: 'recvonly' });
     }
 
+    // Apply candidates that arrived before peer connection was created.
+    if (pendingRemoteIceCandidates.length) {
+        const earlyCandidates = [...pendingRemoteIceCandidates];
+        pendingRemoteIceCandidates = [];
+        earlyCandidates.forEach((candidateData) => {
+            addOrQueueIceCandidate(candidateData).catch((error) => {
+                console.warn('Failed to apply early ICE candidate:', error);
+            });
+        });
+    }
+
     peerConnection.onicecandidate = (event) => {
         if (event.candidate && socket && socket.connected) {
             socket.emit('video signal', {
@@ -6320,7 +6339,31 @@ function createPeerConnection(peerId) {
                 clearTimeout(pendingIceRecoveryTimer);
                 pendingIceRecoveryTimer = null;
             }
+            if (pendingRelayFallbackTimer) {
+                clearTimeout(pendingRelayFallbackTimer);
+                pendingRelayFallbackTimer = null;
+            }
             return;
+        }
+
+        if (peerConnection.iceConnectionState === 'checking' && forceRelayOnly && !pendingRelayFallbackTimer) {
+            // If relay-only stalls, fall back to mixed ICE so STUN/P2P can connect.
+            pendingRelayFallbackTimer = setTimeout(() => {
+                pendingRelayFallbackTimer = null;
+                if (!peerConnection) return;
+                if (peerConnection.iceConnectionState !== 'checking') return;
+                try {
+                    forceRelayOnly = false;
+                    peerConnection.setConfiguration({
+                        iceServers: activeIceServers,
+                        iceTransportPolicy: 'all'
+                    });
+                    showToast('Retrying call with mixed network mode...', 'warning');
+                    attemptIceRecovery(peerId);
+                } catch (fallbackError) {
+                    console.warn('Relay fallback failed:', fallbackError);
+                }
+            }, 10000);
         }
 
         if (peerConnection.iceConnectionState === 'disconnected') {
@@ -6392,6 +6435,7 @@ function openCallDialog(peerName) {
     // Use the new full-screen call overlay instead of a custom dialog
     const overlay = document.getElementById('callOverlay');
     if (overlay) {
+        overlay.classList.toggle('desktop-window', window.innerWidth > 700);
         document.getElementById('callOverlayPeerName').textContent = `📞 ${peerName}`;
         document.getElementById('callTimerLabel').textContent = '00:00:00';
         const muteBtn = document.getElementById('muteBtn');
@@ -6415,6 +6459,7 @@ async function startCallSession(peerName, peerId, isCaller) {
     currentCallPeerName = peerName;
     callIceFailureCount = 0;
     forceRelayOnly = rtcRuntimeConfig?.iceTransportPolicy === 'relay';
+    pendingRemoteIceCandidates = [];
 
     openCallDialog(peerName);
     // Start timer from session start to avoid "stuck at 00:00" perception on unstable networks.
@@ -6627,6 +6672,11 @@ function cleanupCallSession(keepDialogOpen = false) {
         clearTimeout(pendingIceRecoveryTimer);
         pendingIceRecoveryTimer = null;
     }
+    if (pendingRelayFallbackTimer) {
+        clearTimeout(pendingRelayFallbackTimer);
+        pendingRelayFallbackTimer = null;
+    }
+    pendingRemoteIceCandidates = [];
 
     if (localCallStream) {
         localCallStream.getTracks().forEach((track) => track.stop());
