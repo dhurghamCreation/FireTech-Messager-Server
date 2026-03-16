@@ -6194,6 +6194,8 @@ function createPeerConnection(peerId) {
         if (remoteVideo) {
             if (event.streams && event.streams[0]) {
                 const incomingStream = event.streams[0];
+                // Keep reference to the actual remote stream so reconnect logic does not swap it out.
+                remoteCallStream = incomingStream;
                 if (remoteVideo.srcObject !== incomingStream) {
                     remoteVideo.srcObject = incomingStream;
                 }
@@ -6218,8 +6220,16 @@ function createPeerConnection(peerId) {
             
             ensureRemoteMediaPlayback(remoteVideo);
 
+            // Fallback: start timer when media is actually flowing, even if connection state stays "connecting".
+            if (!callTimerInterval) {
+                startCallTimer();
+            }
+
             event.track.onunmute = () => {
                 ensureRemoteMediaPlayback(remoteVideo);
+                if (!callTimerInterval) {
+                    startCallTimer();
+                }
             };
         }
     };
@@ -6250,7 +6260,8 @@ function createPeerConnection(peerId) {
             // Re-attach remote stream after ICE recovery so video/audio plays
             const remoteVidEl = document.getElementById('remoteCallVideo');
             if (remoteVidEl) {
-                if (remoteCallStream && remoteVidEl.srcObject !== remoteCallStream) {
+                // Only set srcObject when video currently has no stream to avoid replacing a valid incoming stream.
+                if (remoteCallStream && !remoteVidEl.srcObject) {
                     remoteVidEl.srcObject = remoteCallStream;
                 }
                 remoteVidEl.muted = false;
