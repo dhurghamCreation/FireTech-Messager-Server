@@ -944,15 +944,19 @@
         #remoteCallVideo, #localCallVideo, #localCallVideoOld {
             display: block;
         }
+        #remoteCallVideo {
+            pointer-events: none;
+        }
         .call-overlay-header {
             position: absolute;
             top: 0; left: 0; right: 0;
             padding: 16px 20px;
             background: linear-gradient(180deg, rgba(0,0,0,0.75), transparent);
-            z-index: 2;
+            z-index: 4;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            pointer-events: auto;
         }
         .call-overlay-controls {
             position: absolute;
@@ -962,7 +966,9 @@
             display: flex;
             justify-content: center;
             gap: 20px;
-            z-index: 2;
+            z-index: 5;
+            pointer-events: auto;
+            touch-action: manipulation;
         }
         .call-ctrl-btn {
             width: 64px; height: 64px;
@@ -974,8 +980,12 @@
             cursor: pointer;
             display: flex; align-items: center; justify-content: center;
             transition: all 0.2s;
+            pointer-events: auto;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
         .call-ctrl-btn:hover { background: rgba(255,255,255,0.35); transform: scale(1.08); }
+        .call-ctrl-btn:active { transform: scale(0.96); }
         .call-ctrl-btn.muted { background: rgba(240,71,71,0.5); border-color: #f04747; }
         .call-ctrl-btn.cam-off { background: rgba(240,71,71,0.5); border-color: #f04747; }
         .call-end-btn {
@@ -988,6 +998,9 @@
             cursor: pointer;
             display: flex; align-items: center; justify-content: center;
             transition: all 0.2s;
+            pointer-events: auto;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
         }
         .call-end-btn:hover { background: #c0392b; transform: scale(1.1); }
         #callDebugPanel {
@@ -3048,7 +3061,7 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.7.0</span>
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.7.1</span>
                     <button class="header-btn mobile-essential" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
@@ -3665,7 +3678,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="client.js?v=2.7.0"></script>
+    <script src="client.js?v=2.7.1"></script>
 </body>
 </html>
 

@@ -295,41 +295,50 @@ function formatMessageTimestamp(timestamp) {
 function ensureRemoteMediaPlayback(videoEl) {
     if (!videoEl) return;
 
-    const playPromise = videoEl.play();
-    if (!playPromise || typeof playPromise.then !== 'function') return;
+    const tryPlay = () => {
+        const playPromise = videoEl.play();
+        if (!playPromise || typeof playPromise.then !== 'function') return;
 
-    playPromise.then(() => {
-        if (!remoteCallPlaybackStarted) {
-            remoteCallPlaybackStarted = true;
-            showToast('📞 Connected! Audio and video are live.', 'success');
-        }
-    }).catch((error) => {
-        if (error?.name === 'AbortError') {
-            setTimeout(() => {
-                if (videoEl.srcObject) {
-                    videoEl.play().catch(() => {});
-                }
-            }, 120);
-            return;
-        }
+        playPromise.then(() => {
+            if (!remoteCallPlaybackStarted) {
+                remoteCallPlaybackStarted = true;
+                showToast('📞 Connected! Audio and video are live.', 'success');
+            }
+        }).catch((error) => {
+            if (error?.name === 'AbortError') {
+                setTimeout(() => {
+                    if (videoEl.srcObject) {
+                        videoEl.play().catch(() => {});
+                    }
+                }, 120);
+                return;
+            }
 
-        console.warn('Remote media autoplay blocked, waiting for user gesture:', error);
-        showToast('Tap once to enable call audio', 'warning');
+            console.warn('Remote media autoplay blocked, waiting for user gesture:', error);
+            showToast('Tap once to enable call audio', 'warning');
 
-        if (!remoteCallPlaybackRetryBound) {
-            remoteCallPlaybackRetryBound = true;
-            const retryPlayback = () => {
-                videoEl.play().catch((retryErr) => {
-                    console.warn('Retry playback failed:', retryErr);
-                });
-                document.removeEventListener('click', retryPlayback);
-                document.removeEventListener('touchstart', retryPlayback);
-                remoteCallPlaybackRetryBound = false;
-            };
-            document.addEventListener('click', retryPlayback, { once: true });
-            document.addEventListener('touchstart', retryPlayback, { once: true });
-        }
-    });
+            if (!remoteCallPlaybackRetryBound) {
+                remoteCallPlaybackRetryBound = true;
+                const retryPlayback = () => {
+                    videoEl.play().catch((retryErr) => {
+                        console.warn('Retry playback failed:', retryErr);
+                    });
+                    document.removeEventListener('click', retryPlayback);
+                    document.removeEventListener('touchstart', retryPlayback);
+                    document.removeEventListener('pointerdown', retryPlayback);
+                    remoteCallPlaybackRetryBound = false;
+                };
+                document.addEventListener('click', retryPlayback, { once: true });
+                document.addEventListener('touchstart', retryPlayback, { once: true, passive: true });
+                document.addEventListener('pointerdown', retryPlayback, { once: true });
+            }
+        });
+    };
+
+    tryPlay();
+    // Extra retry loop for slow mobile media pipelines.
+    setTimeout(tryPlay, 250);
+    setTimeout(tryPlay, 900);
 }
 
 
@@ -6435,6 +6444,10 @@ async function startCallSession(peerName, peerId, isCaller) {
     forceRelayOnly = rtcRuntimeConfig?.iceTransportPolicy === 'relay';
 
     openCallDialog(peerName);
+    // Start timer from session start to avoid "stuck at 00:00" perception on unstable networks.
+    if (!callTimerInterval) {
+        startCallTimer();
+    }
     await ensureRtcConfigLoaded();
     try {
         await ensureLocalCallStream();
@@ -6512,9 +6525,16 @@ function endVideoCall() {
 }
 
 function toggleLocalMute() {
-    if (!localCallStream) return;
+    if (!localCallStream) {
+        showToast('Microphone unavailable on this device/browser', 'warning');
+        return;
+    }
     
     const audioTracks = localCallStream.getAudioTracks();
+    if (!audioTracks.length) {
+        showToast('No microphone track available', 'warning');
+        return;
+    }
     const currentlyEnabled = audioTracks.some(track => track.enabled);
     
     audioTracks.forEach(track => {
@@ -6532,8 +6552,15 @@ function toggleLocalMute() {
 }
 
 function toggleCallCamera() {
-    if (!localCallStream) return;
+    if (!localCallStream) {
+        showToast('Camera unavailable on this device/browser', 'warning');
+        return;
+    }
     const videoTracks = localCallStream.getVideoTracks();
+    if (!videoTracks.length) {
+        showToast('No camera track available', 'warning');
+        return;
+    }
     isCallCameraOff = !isCallCameraOff;
     videoTracks.forEach(track => { track.enabled = !isCallCameraOff; });
     const btn = document.getElementById('cameraBtn');
