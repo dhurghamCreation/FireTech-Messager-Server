@@ -98,7 +98,7 @@ app.get('/api/rtc-config', (req, res) => {
   const turnUrlsRaw = process.env.TURN_URLS || '';
   const turnUsername = process.env.TURN_USERNAME || '';
   const turnCredential = process.env.TURN_CREDENTIAL || '';
-  const relayFlag = String(process.env.RTC_FORCE_RELAY || 'true').toLowerCase();
+  const relayFlag = String(process.env.RTC_FORCE_RELAY || 'false').toLowerCase();
   const forceRelay = relayFlag === 'true' || relayFlag === '1' || relayFlag === 'yes';
 
   let iceServers = [...defaultIceServers];

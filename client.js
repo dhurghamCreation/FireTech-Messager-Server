@@ -2828,7 +2828,12 @@ async function addOrQueueIceCandidate(candidateData) {
     const hasRemoteDescription = Boolean(peerConnection.remoteDescription && peerConnection.remoteDescription.type);
 
     if (hasRemoteDescription) {
-        await peerConnection.addIceCandidate(candidate);
+        try {
+            await peerConnection.addIceCandidate(candidate);
+        } catch (iceErr) {
+            // Stale or duplicate ICE candidates are common and harmless after ICE restart
+            console.warn('ICE candidate ignored:', iceErr.message);
+        }
     } else {
         remoteIceCandidatesQueue.push(candidate);
     }
@@ -6140,16 +6145,11 @@ async function ensureLocalCallStream() {
     try {
         const selectedMic = audioSettings?.microphoneId;
         const constraints = {
-            audio: {
-                deviceId: selectedMic && selectedMic !== 'default' ? { exact: selectedMic } : undefined,
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-            },
+            audio: true, // Keep it simple for better compatibility
             video: {
                 facingMode: 'user',
-                width: { ideal: 720 },
-                height: { ideal: 480 }
+                width: { min: 320, ideal: 640, max: 1280 }, // Use ranges, not fixed ideals
+                height: { min: 240, ideal: 480, max: 720 }
             }
         };
         localCallStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -6249,51 +6249,22 @@ function createPeerConnection(peerId) {
     };
 
     peerConnection.ontrack = (event) => {
-        console.log('📞 Remote track received:', event.track.kind, event.streams.length);
+        // Add the incoming track to our managed MediaStream so srcObject stays consistent.
+        if (event.track && remoteCallStream) {
+            if (!remoteCallStream.getTrackById(event.track.id)) {
+                remoteCallStream.addTrack(event.track);
+            }
+        }
         const remoteVideo = document.getElementById('remoteCallVideo');
         if (remoteVideo) {
-            if (event.streams && event.streams[0]) {
-                const incomingStream = event.streams[0];
-                // Keep reference to the actual remote stream so reconnect logic does not swap it out.
-                remoteCallStream = incomingStream;
-                if (remoteVideo.srcObject !== incomingStream) {
-                    remoteVideo.srcObject = incomingStream;
-                }
-            } else if (remoteCallStream) {
-                remoteCallStream.addTrack(event.track);
-                if (remoteVideo.srcObject !== remoteCallStream) {
-                    remoteVideo.srcObject = remoteCallStream;
-                }
+            if (remoteVideo.srcObject !== remoteCallStream) {
+                remoteVideo.srcObject = remoteCallStream;
             }
-            
-            
             remoteVideo.muted = false;
             remoteVideo.volume = 1.0;
-            
-            
-            if (audioSettings.speakerId && audioSettings.speakerId !== 'default' && typeof remoteVideo.setSinkId === 'function') {
-                remoteVideo.setSinkId(audioSettings.speakerId).catch((sinkError) => {
-                    console.warn('Could not apply selected speaker for call:', sinkError);
-                });
-            }
-            
-            
             ensureRemoteMediaPlayback(remoteVideo);
-
-            // Fallback: start timer when media is actually flowing, even if connection state stays "connecting".
-            if (!callTimerInterval) {
-                startCallTimer();
-            }
-
-            event.track.onunmute = () => {
-                ensureRemoteMediaPlayback(remoteVideo);
-                if (!callTimerInterval) {
-                    startCallTimer();
-                }
-            };
         }
     };
-
     function showCallWarningThrottled(message) {
         const now = Date.now();
         if (now - lastCallWarningAt < 5000) return;
@@ -6314,12 +6285,14 @@ function createPeerConnection(peerId) {
         } else if (peerConnection.connectionState === 'connected') {
             callIceFailureCount = 0;
             showToast('📞 Call connected!', 'success');
-            startCallTimer();
-            // Re-attach remote stream after ICE recovery so video/audio plays
+            // Start timer only if not already running (avoids resetting a running clock)
+            if (!callTimerInterval) {
+                startCallTimer();
+            }
+            // Ensure remote media plays after ICE recovery
             const remoteVidEl = document.getElementById('remoteCallVideo');
             if (remoteVidEl) {
-                // Only set srcObject when video currently has no stream to avoid replacing a valid incoming stream.
-                if (remoteCallStream && !remoteVidEl.srcObject) {
+                if (!remoteVidEl.srcObject && remoteCallStream) {
                     remoteVidEl.srcObject = remoteCallStream;
                 }
                 remoteVidEl.muted = false;

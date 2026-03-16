@@ -934,13 +934,18 @@
         /* ==================== CALL OVERLAY ==================== */
         #callOverlay {
             position: fixed;
-            inset: 0;
-            background: #0a0a0a;
-            z-index: 10000;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999; /* Ensure it's on top of everything */
             display: none;
+            touch-action: manipulation; /* Prevents double-tap zoom delay */
+        }
+        #callOverlay.active {
+            display: flex;
             flex-direction: column;
         }
-        #callOverlay.active { display: flex; }
         #remoteCallVideo, #localCallVideo, #localCallVideoOld {
             display: block;
         }
@@ -3061,7 +3066,7 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.7.1</span>
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.8.0</span>
                     <button class="header-btn mobile-essential" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
@@ -3678,7 +3683,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="client.js?v=2.7.1"></script>
+    <script src="client.js?v=2.8.0"></script>
 </body>
 </html>
 
