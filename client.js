@@ -549,7 +549,12 @@ function switchAccount() {
 
 
 function connectSocket() {
-    // Prevent multiple active socket connections/listeners that can duplicate signaling events.
+    // Reuse existing active socket to avoid duplicating/disrupting signaling during calls.
+    if (socket && (socket.connected || socket.active)) {
+        return;
+    }
+
+    // Cleanup stale socket before creating a new one.
     if (socket) {
         try {
             socket.removeAllListeners();
@@ -6172,6 +6177,22 @@ function createPeerConnection(peerId) {
             },
             {
                 urls: 'turns:a.relay.metered.ca:443?transport=tcp',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            // openrelay public TURN (legacy hostname fallback)
+            {
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:openrelay.metered.ca:443',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            },
+            {
+                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
             },
