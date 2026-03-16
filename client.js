@@ -30,6 +30,7 @@ let rtcConfigLoaded = false;
 let activeIceServers = [];
 let callIceFailureCount = 0;
 let forceRelayOnly = false;
+let pendingIceRecoveryTimer = null;
 let hasUserInteractedWithPage = false;
 let activeRoomSubscription = null;
 let roomMessages = JSON.parse(localStorage.getItem('roomMessages') || '{}');
@@ -6288,9 +6289,6 @@ function createPeerConnection(peerId) {
         }
         if (peerConnection.connectionState === 'connecting') {
             showToast('📞 Connecting call...', 'info');
-        } else if (peerConnection.connectionState === 'disconnected') {
-            showCallWarningThrottled('⚠️ Connection unstable, trying to reconnect...');
-            attemptIceRecovery(peerId);
         } else if (peerConnection.connectionState === 'connected') {
             callIceFailureCount = 0;
             showToast('📞 Call connected!', 'success');
@@ -6323,10 +6321,34 @@ function createPeerConnection(peerId) {
 
         if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
             callIceFailureCount = 0;
+            if (pendingIceRecoveryTimer) {
+                clearTimeout(pendingIceRecoveryTimer);
+                pendingIceRecoveryTimer = null;
+            }
             return;
         }
 
-        if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
+        if (peerConnection.iceConnectionState === 'disconnected') {
+            if (pendingIceRecoveryTimer) {
+                clearTimeout(pendingIceRecoveryTimer);
+            }
+            // 'disconnected' can be temporary on mobile networks; wait before forcing ICE restart.
+            pendingIceRecoveryTimer = setTimeout(() => {
+                pendingIceRecoveryTimer = null;
+                if (!peerConnection) return;
+                if (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed') {
+                    showCallWarningThrottled('⚠️ Connection unstable, trying to reconnect...');
+                    attemptIceRecovery(peerId);
+                }
+            }, 3000);
+            return;
+        }
+
+        if (peerConnection.iceConnectionState === 'failed') {
+            if (pendingIceRecoveryTimer) {
+                clearTimeout(pendingIceRecoveryTimer);
+                pendingIceRecoveryTimer = null;
+            }
             attemptIceRecovery(peerId);
         }
     };
@@ -6397,7 +6419,7 @@ async function startCallSession(peerName, peerId, isCaller) {
     currentCallPeerId = peerId;
     currentCallPeerName = peerName;
     callIceFailureCount = 0;
-    forceRelayOnly = false;
+    forceRelayOnly = rtcRuntimeConfig?.iceTransportPolicy === 'relay';
 
     openCallDialog(peerName);
     await ensureRtcConfigLoaded();
@@ -6579,6 +6601,10 @@ function cleanupCallSession(keepDialogOpen = false) {
     callIceFailureCount = 0;
     forceRelayOnly = false;
     activeIceServers = [];
+    if (pendingIceRecoveryTimer) {
+        clearTimeout(pendingIceRecoveryTimer);
+        pendingIceRecoveryTimer = null;
+    }
 
     if (localCallStream) {
         localCallStream.getTracks().forEach((track) => track.stop());
