@@ -24,6 +24,7 @@ let remoteCallPlaybackRetryBound = false;
 let remoteCallPlaybackStarted = false;
 let isStartingCallSession = false;
 let pendingSignalOffer = null;
+let makingOffer = false;
 let hasUserInteractedWithPage = false;
 let activeRoomSubscription = null;
 let roomMessages = JSON.parse(localStorage.getItem('roomMessages') || '{}');
@@ -548,6 +549,16 @@ function switchAccount() {
 
 
 function connectSocket() {
+    // Prevent multiple active socket connections/listeners that can duplicate signaling events.
+    if (socket) {
+        try {
+            socket.removeAllListeners();
+            socket.disconnect();
+        } catch (socketCleanupError) {
+            console.warn('Previous socket cleanup failed:', socketCleanupError);
+        }
+    }
+
     socket = io(SERVER_URL, {
         reconnection: true,
         reconnectionDelay: 1000,
@@ -947,6 +958,22 @@ function connectSocket() {
 
         try {
             if (signal.type === 'offer') {
+                const isPolitePeer = String(currentUser?.id || '') > String(fromId || '');
+                const hasPeer = !!peerConnection;
+                const offerCollision = hasPeer && (makingOffer || peerConnection.signalingState !== 'stable');
+
+                if (offerCollision) {
+                    if (!isPolitePeer) {
+                        console.warn('Ignoring offer collision (impolite peer)');
+                        return;
+                    }
+
+                    // Polite peer: rollback local offer so remote offer can be accepted.
+                    if (peerConnection.signalingState === 'have-local-offer') {
+                        await peerConnection.setLocalDescription({ type: 'rollback' });
+                    }
+                }
+
                 if (!activeCallState) {
                     activeCallState = { callId: payload?.callId || null, peerId: fromId, direction: 'incoming' };
                 }
@@ -6356,16 +6383,21 @@ async function startCallSession(peerName, peerId, isCaller) {
     createPeerConnection(peerId);
 
     if (isCaller && peerConnection) {
-        const offer = await peerConnection.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: true
-        });
-        await peerConnection.setLocalDescription(offer);
-        socket.emit('video signal', {
-            toId: peerId,
-            callId: activeCallState?.callId,
-            signal: { type: 'offer', offer }
-        });
+        makingOffer = true;
+        try {
+            const offer = await peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+            });
+            await peerConnection.setLocalDescription(offer);
+            socket.emit('video signal', {
+                toId: peerId,
+                callId: activeCallState?.callId,
+                signal: { type: 'offer', offer }
+            });
+        } finally {
+            makingOffer = false;
+        }
     }
 
     // Handle an offer that arrived while this session was being set up
@@ -6514,6 +6546,7 @@ function cleanupCallSession(keepDialogOpen = false) {
     lastCallWarningAt = 0;
     isStartingCallSession = false;
     pendingSignalOffer = null;
+    makingOffer = false;
 
     if (localCallStream) {
         localCallStream.getTracks().forEach((track) => track.stop());
