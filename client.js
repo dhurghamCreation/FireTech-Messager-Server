@@ -6209,11 +6209,24 @@ function createPeerConnection(peerId) {
         remoteVideo.volume = 1.0;
     }
 
+    let hasLocalAudio = false;
+    let hasLocalVideo = false;
+
     if (localCallStream) {
         localCallStream.getTracks().forEach((track) => {
             track.enabled = true;
             peerConnection.addTrack(track, localCallStream);
+            if (track.kind === 'audio') hasLocalAudio = true;
+            if (track.kind === 'video') hasLocalVideo = true;
         });
+    }
+
+    // Keep remote receiving path alive even when local media permissions fail.
+    if (!hasLocalAudio) {
+        peerConnection.addTransceiver('audio', { direction: 'recvonly' });
+    }
+    if (!hasLocalVideo) {
+        peerConnection.addTransceiver('video', { direction: 'recvonly' });
     }
 
     peerConnection.onicecandidate = (event) => {
@@ -6423,12 +6436,21 @@ async function startCallSession(peerName, peerId, isCaller) {
 
     openCallDialog(peerName);
     await ensureRtcConfigLoaded();
-    await ensureLocalCallStream();
+    try {
+        await ensureLocalCallStream();
+    } catch (mediaError) {
+        // Do not abort the call - continue in receive-only mode so user can still hear/see remote party.
+        console.warn('Local media unavailable, continuing receive-only call:', mediaError);
+        localCallStream = null;
+        showToast('Starting call in receive-only mode (local camera/mic unavailable)', 'warning');
+    }
 
     const localVideo = document.getElementById('localCallVideo');
-    if (localVideo) {
+    if (localVideo && localCallStream) {
         localVideo.srcObject = localCallStream;
         localVideo.play().catch(() => {});
+    } else if (localVideo) {
+        localVideo.srcObject = null;
     }
 
     createPeerConnection(peerId);

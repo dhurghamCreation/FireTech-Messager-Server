@@ -1,6 +1,6 @@
 {
   "name": "discord-like-app",
-  "version": "2.6.9",
+  "version": "2.7.0",
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
