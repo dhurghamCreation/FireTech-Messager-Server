@@ -25,6 +25,11 @@ let remoteCallPlaybackStarted = false;
 let isStartingCallSession = false;
 let pendingSignalOffer = null;
 let makingOffer = false;
+let rtcRuntimeConfig = null;
+let rtcConfigLoaded = false;
+let activeIceServers = [];
+let callIceFailureCount = 0;
+let forceRelayOnly = false;
 let hasUserInteractedWithPage = false;
 let activeRoomSubscription = null;
 let roomMessages = JSON.parse(localStorage.getItem('roomMessages') || '{}');
@@ -80,6 +85,35 @@ let themeSettings = {
 
 const SERVER_URL = window.location.origin;
 const API_BASE = SERVER_URL + '/api';
+
+function getDefaultIceServers() {
+    return [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
+    ];
+}
+
+async function ensureRtcConfigLoaded() {
+    if (rtcConfigLoaded) return;
+    rtcConfigLoaded = true;
+    try {
+        const response = await fetch(`${API_BASE}/rtc-config`, { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (Array.isArray(data?.iceServers) && data.iceServers.length > 0) {
+            rtcRuntimeConfig = {
+                iceServers: data.iceServers,
+                iceTransportPolicy: data.iceTransportPolicy === 'relay' ? 'relay' : 'all'
+            };
+        }
+    } catch (rtcConfigError) {
+        console.warn('RTC config fetch failed, using defaults:', rtcConfigError);
+    }
+}
 
 function normalizeRoomKeyClient(roomType, roomName) {
     return `${String(roomType || '').trim().toLowerCase()}:${String(roomName || '').trim().toLowerCase()}`;
@@ -5742,6 +5776,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     
     syncBuildVersionBadge();
+    ensureRtcConfigLoaded();
 
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
@@ -6150,61 +6185,15 @@ function createPeerConnection(peerId) {
         peerConnection = null;
     }
 
+    const runtimeIceServers = Array.isArray(rtcRuntimeConfig?.iceServers) && rtcRuntimeConfig.iceServers.length
+        ? rtcRuntimeConfig.iceServers
+        : getDefaultIceServers();
+    activeIceServers = runtimeIceServers;
+
     peerConnection = new RTCPeerConnection({
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
-            // Cloudflare STUN
-            { urls: 'stun:stun.cloudflare.com:3478' },
-            // metered.ca reliable TURN servers
-            {
-                urls: 'turn:a.relay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            {
-                urls: 'turn:a.relay.metered.ca:80?transport=tcp',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            {
-                urls: 'turn:a.relay.metered.ca:443',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            {
-                urls: 'turns:a.relay.metered.ca:443?transport=tcp',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            // openrelay public TURN (legacy hostname fallback)
-            {
-                urls: 'turn:openrelay.metered.ca:80',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            {
-                urls: 'turn:openrelay.metered.ca:443',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            {
-                urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                username: 'openrelayproject',
-                credential: 'openrelayproject'
-            },
-            // numb.viagenie free TURN fallback
-            {
-                urls: 'turn:numb.viagenie.ca',
-                username: 'webrtc@live.com',
-                credential: 'muazkh'
-            }
-        ],
+        iceServers: runtimeIceServers,
         iceCandidatePoolSize: 10,
-        iceTransportPolicy: 'all'
+        iceTransportPolicy: forceRelayOnly ? 'relay' : (rtcRuntimeConfig?.iceTransportPolicy || 'all')
     });
 
     remoteIceCandidatesQueue = [];
@@ -6303,6 +6292,7 @@ function createPeerConnection(peerId) {
             showCallWarningThrottled('⚠️ Connection unstable, trying to reconnect...');
             attemptIceRecovery(peerId);
         } else if (peerConnection.connectionState === 'connected') {
+            callIceFailureCount = 0;
             showToast('📞 Call connected!', 'success');
             startCallTimer();
             // Re-attach remote stream after ICE recovery so video/audio plays
@@ -6331,6 +6321,11 @@ function createPeerConnection(peerId) {
         if (!peerConnection) return;
         console.log('ICE connection state:', peerConnection.iceConnectionState);
 
+        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+            callIceFailureCount = 0;
+            return;
+        }
+
         if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
             attemptIceRecovery(peerId);
         }
@@ -6342,8 +6337,18 @@ function createPeerConnection(peerId) {
         const now = Date.now();
         if (now - lastIceRecoveryAttemptAt < 4000) return;
         lastIceRecoveryAttemptAt = now;
+        callIceFailureCount += 1;
 
         try {
+            if (callIceFailureCount >= 2 && !forceRelayOnly) {
+                forceRelayOnly = true;
+                peerConnection.setConfiguration({
+                    iceServers: activeIceServers,
+                    iceTransportPolicy: 'relay'
+                });
+                showToast('Switching call to relay mode for network compatibility...', 'warning');
+            }
+
             peerConnection.restartIce?.();
 
             if (peerConnection.signalingState === 'stable') {
@@ -6391,8 +6396,11 @@ async function startCallSession(peerName, peerId, isCaller) {
     try {
     currentCallPeerId = peerId;
     currentCallPeerName = peerName;
+    callIceFailureCount = 0;
+    forceRelayOnly = false;
 
     openCallDialog(peerName);
+    await ensureRtcConfigLoaded();
     await ensureLocalCallStream();
 
     const localVideo = document.getElementById('localCallVideo');
@@ -6568,6 +6576,9 @@ function cleanupCallSession(keepDialogOpen = false) {
     isStartingCallSession = false;
     pendingSignalOffer = null;
     makingOffer = false;
+    callIceFailureCount = 0;
+    forceRelayOnly = false;
+    activeIceServers = [];
 
     if (localCallStream) {
         localCallStream.getTracks().forEach((track) => track.stop());

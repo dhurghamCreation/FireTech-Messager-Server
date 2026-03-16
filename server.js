@@ -66,6 +66,47 @@ app.get('/api/version', (req, res) => {
   }
 });
 
+app.get('/api/rtc-config', (req, res) => {
+  const defaultIceServers = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' }
+  ];
+
+  const turnUrlsRaw = process.env.TURN_URLS || '';
+  const turnUsername = process.env.TURN_USERNAME || '';
+  const turnCredential = process.env.TURN_CREDENTIAL || '';
+  const forceRelay = String(process.env.RTC_FORCE_RELAY || '').toLowerCase() === 'true';
+
+  let iceServers = [...defaultIceServers];
+
+  if (turnUrlsRaw && turnUsername && turnCredential) {
+    const turnUrls = turnUrlsRaw
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+
+    if (turnUrls.length) {
+      iceServers = [
+        ...defaultIceServers,
+        {
+          urls: turnUrls,
+          username: turnUsername,
+          credential: turnCredential
+        }
+      ];
+    }
+  }
+
+  res.json({
+    iceServers,
+    iceTransportPolicy: forceRelay ? 'relay' : 'all'
+  });
+});
+
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/discord-app';
 const isLocalConnection = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
 
@@ -773,6 +814,9 @@ const io = require('socket.io')(server, {
 
 const onlineUsers = new Map();
 const roomMessages = new Map();
+const roomMembers = new Map();
+const roomRoles = new Map();
+const roomProfiles = new Map();
 
 function normalizeRoomKey(roomType, roomName) {
   return String(roomType || 'community') + ':' + String(roomName || '').trim().toLowerCase();
@@ -781,6 +825,29 @@ function normalizeRoomKey(roomType, roomName) {
 function getRoomMessages(roomType, roomName) {
   const key = normalizeRoomKey(roomType, roomName);
   return roomMessages.get(key) || [];
+}
+
+async function loadRoomMessagesFromDb(roomType, roomName, limit = 150) {
+  const key = normalizeRoomKey(roomType, roomName);
+  const rows = await Message.findAll({
+    where: { channelId: key },
+    include: [{ model: User, attributes: ['id', 'username', 'avatar'], required: false }],
+    order: [['createdAt', 'ASC']],
+    limit
+  });
+
+  return rows.map((row) => ({
+    messageId: row.messageId || row.id,
+    from: row.senderId || row.User?.id || null,
+    fromUsername: row.senderUsername || row.User?.username || 'User',
+    fromAvatar: row.User?.avatar || null,
+    content: row.content || '',
+    mediaType: row.mediaType || 'text',
+    mediaUrl: row.mediaUrl || null,
+    roomType,
+    roomName,
+    timestamp: row.createdAt
+  }));
 }
 
 function appendRoomMessage(roomType, roomName, payload) {
@@ -804,6 +871,150 @@ function emitToUser(userId, eventName, payload) {
 
   return delivered;
 }
+
+function getRoomMembersPayload(roomType, roomName) {
+  const roomKey = normalizeRoomKey(roomType, roomName);
+  const membersBySocket = roomMembers.get(roomKey) || new Map();
+  const dedupByUserId = new Map();
+
+  for (const member of membersBySocket.values()) {
+    const userId = String(member.userId);
+    if (!dedupByUserId.has(userId)) {
+      dedupByUserId.set(userId, {
+        id: member.userId,
+        username: member.username,
+        avatar: member.avatar || null,
+        status: 'online',
+        role: member.role || 'Member'
+      });
+    }
+  }
+
+  return Array.from(dedupByUserId.values());
+}
+
+function emitRoomMembersUpdate(roomType, roomName) {
+  const roomKey = normalizeRoomKey(roomType, roomName);
+  io.to(roomKey).emit('room members update', {
+    roomType,
+    roomName,
+    members: getRoomMembersPayload(roomType, roomName)
+  });
+}
+
+function upsertRoomMember(roomType, roomName, socket) {
+  const roomKey = normalizeRoomKey(roomType, roomName);
+
+  if (!roomMembers.has(roomKey)) {
+    roomMembers.set(roomKey, new Map());
+  }
+  if (!roomRoles.has(roomKey)) {
+    roomRoles.set(roomKey, new Map());
+  }
+
+  const membersBySocket = roomMembers.get(roomKey);
+  const rolesByUser = roomRoles.get(roomKey);
+  const userIdKey = String(socket.userId);
+
+  if (!rolesByUser.has(userIdKey)) {
+    const uniqueUsers = new Set(Array.from(membersBySocket.values()).map((m) => String(m.userId)));
+    const isFirstMember = uniqueUsers.size === 0;
+    rolesByUser.set(userIdKey, isFirstMember ? 'Owner' : 'Member');
+  }
+
+  membersBySocket.set(socket.id, {
+    userId: socket.userId,
+    username: socket.username,
+    avatar: socket.userAvatar || null,
+    role: rolesByUser.get(userIdKey)
+  });
+
+  emitRoomMembersUpdate(roomType, roomName);
+}
+
+function removeRoomMember(roomType, roomName, socketId) {
+  const roomKey = normalizeRoomKey(roomType, roomName);
+  const membersBySocket = roomMembers.get(roomKey);
+  if (!membersBySocket) return;
+
+  membersBySocket.delete(socketId);
+
+  if (membersBySocket.size === 0) {
+    roomMembers.delete(roomKey);
+    roomRoles.delete(roomKey);
+    return;
+  }
+
+  emitRoomMembersUpdate(roomType, roomName);
+}
+
+function emitUsersUpdate() {
+  io.emit('users update', Array.from(onlineUsers.values()));
+}
+
+function getOrCreateRoomProfile(roomType, roomName) {
+  const roomKey = normalizeRoomKey(roomType, roomName);
+  if (!roomProfiles.has(roomKey)) {
+    roomProfiles.set(roomKey, {
+      name: String(roomName || ''),
+      icon: roomType === 'community' ? '🌐' : '👥',
+      image: ''
+    });
+  }
+  return roomProfiles.get(roomKey);
+}
+
+function emitRoomProfileUpdate(roomType, roomName, profile, previousRoomName = null) {
+  const roomKey = normalizeRoomKey(roomType, roomName);
+  io.to(roomKey).emit('room profile updated', {
+    roomType,
+    roomName,
+    previousRoomName,
+    profile
+  });
+}
+
+function renameRoomState(roomType, previousRoomName, nextRoomName) {
+  const oldKey = normalizeRoomKey(roomType, previousRoomName);
+  const newKey = normalizeRoomKey(roomType, nextRoomName);
+  if (oldKey === newKey) return newKey;
+
+  if (roomMessages.has(oldKey)) {
+    roomMessages.set(newKey, roomMessages.get(oldKey));
+    roomMessages.delete(oldKey);
+  }
+
+  if (roomRoles.has(oldKey)) {
+    roomRoles.set(newKey, roomRoles.get(oldKey));
+    roomRoles.delete(oldKey);
+  }
+
+  if (roomProfiles.has(oldKey)) {
+    roomProfiles.set(newKey, roomProfiles.get(oldKey));
+    roomProfiles.delete(oldKey);
+  }
+
+  if (roomMembers.has(oldKey)) {
+    const membersBySocket = roomMembers.get(oldKey);
+    roomMembers.set(newKey, membersBySocket);
+    roomMembers.delete(oldKey);
+
+    for (const socketId of membersBySocket.keys()) {
+      const memberSocket = io.sockets.sockets.get(socketId);
+      if (!memberSocket) continue;
+      memberSocket.leave(oldKey);
+      memberSocket.join(newKey);
+      memberSocket.currentRoomKey = newKey;
+      memberSocket.currentRoomMeta = {
+        roomType,
+        roomName: nextRoomName
+      };
+    }
+  }
+
+  return newKey;
+}
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
@@ -827,11 +1038,42 @@ io.on('connection', (socket) => {
         user.status = 'online';
         await user.save();
 
-        io.emit('users update', Array.from(onlineUsers.values()));
+        emitUsersUpdate();
       }
     } catch (error) {
       socket.emit('error', 'Authentication failed');
     }
+  });
+
+  socket.on('update profile cache', (data) => {
+    const nextUsername = String(data?.username || socket.username || '').trim();
+    const nextAvatar = data?.avatar ?? socket.userAvatar ?? null;
+    if (nextUsername) {
+      socket.username = nextUsername;
+    }
+    socket.userAvatar = nextAvatar;
+
+    const existing = onlineUsers.get(socket.id);
+    if (existing) {
+      existing.username = socket.username;
+      existing.avatar = socket.userAvatar;
+      onlineUsers.set(socket.id, existing);
+    }
+
+    if (socket.currentRoomMeta) {
+      const { roomType, roomName } = socket.currentRoomMeta;
+      const roomKey = normalizeRoomKey(roomType, roomName);
+      const membersBySocket = roomMembers.get(roomKey);
+      if (membersBySocket && membersBySocket.has(socket.id)) {
+        const member = membersBySocket.get(socket.id);
+        member.username = socket.username;
+        member.avatar = socket.userAvatar;
+        membersBySocket.set(socket.id, member);
+        emitRoomMembersUpdate(roomType, roomName);
+      }
+    }
+
+    emitUsersUpdate();
   });
 
   socket.on('join dm', (friendId) => {
@@ -961,7 +1203,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('join room chat', (data) => {
+  socket.on('join room chat', async (data) => {
     const roomType = data?.roomType;
     const roomName = data?.roomName;
     if (!roomType || !roomName) return;
@@ -969,16 +1211,37 @@ io.on('connection', (socket) => {
     const roomKey = normalizeRoomKey(roomType, roomName);
 
     if (socket.currentRoomKey && socket.currentRoomKey !== roomKey) {
+      if (socket.currentRoomMeta) {
+        removeRoomMember(socket.currentRoomMeta.roomType, socket.currentRoomMeta.roomName, socket.id);
+      }
       socket.leave(socket.currentRoomKey);
     }
 
     socket.join(roomKey);
     socket.currentRoomKey = roomKey;
+    socket.currentRoomMeta = { roomType, roomName };
+    upsertRoomMember(roomType, roomName, socket);
+
+    const roomProfile = getOrCreateRoomProfile(roomType, roomName);
+    socket.emit('room profile updated', {
+      roomType,
+      roomName,
+      previousRoomName: roomName,
+      profile: roomProfile
+    });
+
+    let history = getRoomMessages(roomType, roomName);
+    try {
+      history = await loadRoomMessagesFromDb(roomType, roomName, 180);
+      roomMessages.set(roomKey, history);
+    } catch (error) {
+      console.warn('Failed loading DB room history:', error.message);
+    }
 
     socket.emit('room chat history', {
       roomType,
       roomName,
-      messages: getRoomMessages(roomType, roomName)
+      messages: history
     });
   });
 
@@ -989,16 +1252,107 @@ io.on('connection', (socket) => {
 
     const roomKey = normalizeRoomKey(roomType, roomName);
     socket.leave(roomKey);
+    removeRoomMember(roomType, roomName, socket.id);
 
     if (socket.currentRoomKey === roomKey) {
       socket.currentRoomKey = null;
+      socket.currentRoomMeta = null;
     }
   });
 
-  socket.on('send room message', (data) => {
+  socket.on('set room role', (data) => {
+    const roomType = data?.roomType;
+    const roomName = data?.roomName;
+    const targetUserId = data?.targetUserId;
+    const nextRoleRaw = String(data?.role || '').trim();
+    const nextRole = ['Owner', 'Admin', 'Member'].includes(nextRoleRaw) ? nextRoleRaw : null;
+    if (!roomType || !roomName || !targetUserId || !nextRole) return;
+
+    const roomKey = normalizeRoomKey(roomType, roomName);
+    const rolesByUser = roomRoles.get(roomKey);
+    if (!rolesByUser) return;
+
+    const actorRole = rolesByUser.get(String(socket.userId));
+    if (actorRole !== 'Owner' && actorRole !== 'Admin') {
+      socket.emit('error', 'Only Owner/Admin can change roles');
+      return;
+    }
+
+    if (actorRole === 'Admin' && nextRole === 'Owner') {
+      socket.emit('error', 'Admin cannot assign Owner role');
+      return;
+    }
+
+    rolesByUser.set(String(targetUserId), nextRole);
+
+    const membersBySocket = roomMembers.get(roomKey);
+    if (membersBySocket) {
+      for (const [memberSocketId, member] of membersBySocket.entries()) {
+        if (String(member.userId) === String(targetUserId)) {
+          member.role = nextRole;
+          membersBySocket.set(memberSocketId, member);
+        }
+      }
+    }
+
+    emitRoomMembersUpdate(roomType, roomName);
+  });
+
+  socket.on('update room profile', (data) => {
+    const roomType = data?.roomType;
+    const roomName = String(data?.roomName || '').trim();
+    const patch = data?.profilePatch || {};
+    if (!roomType || !roomName) return;
+
+    const roomKey = normalizeRoomKey(roomType, roomName);
+    let rolesByUser = roomRoles.get(roomKey);
+    if (!rolesByUser) {
+      rolesByUser = new Map();
+      rolesByUser.set(String(socket.userId), 'Owner');
+      roomRoles.set(roomKey, rolesByUser);
+    }
+
+    const actorRole = rolesByUser.get(String(socket.userId));
+    let effectiveRole = actorRole;
+    if (roomType === 'group' && !effectiveRole) {
+      effectiveRole = 'Owner';
+      rolesByUser.set(String(socket.userId), effectiveRole);
+    }
+
+    if (effectiveRole !== 'Owner' && effectiveRole !== 'Admin') {
+      socket.emit('error', roomType === 'group'
+        ? 'Only Owner or Admin can edit group appearance'
+        : 'Only Leader/Vice Leader can edit room appearance');
+      return;
+    }
+
+    const safeName = String(patch?.name || '').trim();
+    const safeIcon = typeof patch?.icon === 'string' ? patch.icon.trim().slice(0, 4) : null;
+    const safeImage = typeof patch?.image === 'string' ? patch.image : null;
+
+    let nextRoomName = roomName;
+    if (safeName) {
+      nextRoomName = safeName;
+      renameRoomState(roomType, roomName, nextRoomName);
+    }
+
+    const profile = getOrCreateRoomProfile(roomType, nextRoomName);
+    if (safeName) profile.name = safeName;
+    if (safeIcon !== null) profile.icon = safeIcon;
+    if (safeImage !== null) profile.image = safeImage;
+
+    const nextRoomKey = normalizeRoomKey(roomType, nextRoomName);
+    roomProfiles.set(nextRoomKey, profile);
+
+    emitRoomProfileUpdate(roomType, nextRoomName, profile, roomName);
+    emitRoomMembersUpdate(roomType, nextRoomName);
+  });
+
+  socket.on('send room message', async (data) => {
     const roomType = data?.roomType;
     const roomName = data?.roomName;
     if (!roomType || !roomName) return;
+    const roomKey = normalizeRoomKey(roomType, roomName);
 
     const messagePayload = {
       messageId: uuidv4(),
@@ -1014,7 +1368,21 @@ io.on('connection', (socket) => {
     };
 
     appendRoomMessage(roomType, roomName, messagePayload);
-    const roomKey = normalizeRoomKey(roomType, roomName);
+
+    try {
+      await Message.create({
+        messageId: messagePayload.messageId,
+        channelId: roomKey,
+        senderId: socket.userId,
+        senderUsername: socket.username,
+        content: messagePayload.content,
+        mediaType: messagePayload.mediaType,
+        mediaUrl: messagePayload.mediaUrl || null
+      });
+    } catch (error) {
+      console.warn('Failed persisting room message:', error.message);
+    }
+
     io.to(roomKey).emit('room message', messagePayload);
   });
 
@@ -1025,6 +1393,7 @@ io.on('connection', (socket) => {
 
     const roomKey = normalizeRoomKey(roomType, roomName);
     roomMessages.set(roomKey, []);
+    Message.destroy({ where: { channelId: roomKey } }).catch(() => {});
     io.to(roomKey).emit('room chat cleared', { roomType, roomName, clearedBy: socket.userId });
   });
   socket.on('send friend request', async (data) => {
@@ -1187,7 +1556,10 @@ io.on('connection', (socket) => {
           await user.save();
         }
         onlineUsers.delete(socket.id);
-        io.emit('users update', Array.from(onlineUsers.values()));
+        if (socket.currentRoomMeta) {
+          removeRoomMember(socket.currentRoomMeta.roomType, socket.currentRoomMeta.roomName, socket.id);
+        }
+        emitUsersUpdate();
       }
     } catch (error) {
       console.error(error);
@@ -1208,8 +1580,7 @@ function getLocalNetworkAddress() {
   return '127.0.0.1';
 }
 
-const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '0.0.0.0';
+
 
 
 async function migrateMediaTypeEnum() {
@@ -1266,6 +1637,8 @@ async function seedShopItems() {
 
   await ShopItem.bulkCreate(items);
 }
+const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 sequelize.sync({ alter: true }).then(async () => {
   await migrateMediaTypeEnum();
@@ -1296,6 +1669,8 @@ sequelize.sync({ alter: true }).then(async () => {
   console.error('Database sync error:', err);
   process.exit(1);
 });
+  
+
 
 
 
