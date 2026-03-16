@@ -969,6 +969,18 @@
         #remoteCallVideo, #localCallVideo, #localCallVideoOld {
             display: block;
         }
+        #hostedCallContainer {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            display: none;
+            background: #0f1116;
+        }
+        #hostedCallContainer iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
         #remoteCallVideo {
             pointer-events: none;
         }
@@ -3111,7 +3123,7 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.8.4</span>
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.9.0</span>
                     <button class="header-btn mobile-essential" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
@@ -3693,6 +3705,7 @@
     <!-- ========== FULL-SCREEN CALL OVERLAY ========== -->
     <div id="callOverlay">
         <div class="call-overlay-stage">
+            <div id="hostedCallContainer"></div>
             <video id="remoteCallVideo" autoplay playsinline style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0;"></video>
             <video id="localCallVideo" autoplay muted playsinline style="position:absolute; bottom:110px; right:14px; width:110px; height:150px; border-radius:12px; border:2px solid rgba(255,255,255,0.6); object-fit:cover; z-index:2;"></video>
 
@@ -3730,8 +3743,9 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://meet.jit.si/external_api.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="client.js?v=2.8.4"></script>
+    <script src="client.js?v=2.9.0"></script>
 </body>
 </html>
 

@@ -34,6 +34,9 @@ let pendingIceRecoveryTimer = null;
 let pendingRelayFallbackTimer = null;
 let pendingRemoteIceCandidates = [];
 let callEventLog = [];
+let currentCallProvider = 'webrtc';
+let currentJitsiApi = null;
+let currentCallRoomName = null;
 let hasUserInteractedWithPage = false;
 let activeRoomSubscription = null;
 let roomMessages = JSON.parse(localStorage.getItem('roomMessages') || '{}');
@@ -381,6 +384,122 @@ function setCallStatus(statusText) {
     if (statusLabel) {
         statusLabel.textContent = statusText || '';
     }
+}
+
+function ensureJitsiApiLoaded() {
+    if (typeof window.JitsiMeetExternalAPI === 'function') {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-jitsi-external-api="true"]');
+        if (existing) {
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error('Failed to load hosted call API')), { once: true });
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://meet.jit.si/external_api.js';
+        script.async = true;
+        script.dataset.jitsiExternalApi = 'true';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load hosted call API'));
+        document.head.appendChild(script);
+    });
+}
+
+function setHostedCallVisible(isVisible) {
+    const host = document.getElementById('hostedCallContainer');
+    const remoteVideo = document.getElementById('remoteCallVideo');
+    const localVideo = document.getElementById('localCallVideo');
+    if (host) host.style.display = isVisible ? 'block' : 'none';
+    if (remoteVideo) remoteVideo.style.display = isVisible ? 'none' : 'block';
+    if (localVideo) localVideo.style.display = isVisible ? 'none' : 'block';
+}
+
+async function startHostedCallRoom(peerName, roomName) {
+    if (!roomName) {
+        throw new Error('Missing hosted room name');
+    }
+
+    openCallDialog(peerName);
+    setCallStatus('Joining hosted call...');
+    appendCallLog(`Joining hosted room ${roomName}`);
+
+    await ensureJitsiApiLoaded();
+
+    const host = document.getElementById('hostedCallContainer');
+    if (!host) {
+        throw new Error('Hosted call container not found');
+    }
+
+    if (currentJitsiApi) {
+        currentJitsiApi.dispose();
+        currentJitsiApi = null;
+    }
+
+    host.innerHTML = '';
+    setHostedCallVisible(true);
+    currentCallProvider = 'hosted';
+    currentCallRoomName = roomName;
+
+    currentJitsiApi = new window.JitsiMeetExternalAPI('meet.jit.si', {
+        roomName,
+        parentNode: host,
+        width: '100%',
+        height: '100%',
+        userInfo: {
+            displayName: currentUser?.username || 'User'
+        },
+        configOverwrite: {
+            prejoinPageEnabled: false,
+            startWithAudioMuted: false,
+            startWithVideoMuted: false,
+            disableDeepLinking: true
+        },
+        interfaceConfigOverwrite: {
+            MOBILE_APP_PROMO: false,
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false
+        }
+    });
+
+    currentJitsiApi.addListener('videoConferenceJoined', () => {
+        setCallStatus('Connected');
+        appendCallLog('Hosted room joined');
+        if (!callTimerInterval) {
+            startCallTimer();
+        }
+    });
+    currentJitsiApi.addListener('participantJoined', (payload) => {
+        appendCallLog(`Participant joined: ${payload?.displayName || payload?.id || 'remote user'}`);
+    });
+    currentJitsiApi.addListener('participantLeft', (payload) => {
+        appendCallLog(`Participant left: ${payload?.id || 'remote user'}`);
+    });
+    currentJitsiApi.addListener('audioMuteStatusChanged', ({ muted }) => {
+        const btn = document.getElementById('muteBtn');
+        if (btn) {
+            btn.textContent = muted ? '🔇' : '🎤';
+            btn.classList.toggle('muted', !!muted);
+        }
+    });
+    currentJitsiApi.addListener('videoMuteStatusChanged', ({ muted }) => {
+        const btn = document.getElementById('cameraBtn');
+        if (btn) {
+            btn.textContent = muted ? '🚫' : '📷';
+            btn.classList.toggle('cam-off', !!muted);
+        }
+    });
+    currentJitsiApi.addListener('readyToClose', () => {
+        appendCallLog('Hosted room requested close');
+        cleanupCallSession(false);
+    });
+    currentJitsiApi.addListener('videoConferenceLeft', () => {
+        appendCallLog('Hosted room left');
+        cleanupCallSession(false);
+    });
 }
 
 let callControlBindingsDone = false;
@@ -1034,12 +1153,12 @@ function connectSocket() {
         const byName = payload?.byUsername || 'User';
         stopIncomingCallAlert();
         showToast(`${byName} accepted the call`, 'success');
-        const peerId = activeCallState?.peerId || payload?.byUserId;
-        if (peerId) {
+        const roomName = activeCallState?.callId || payload?.callId;
+        if (roomName) {
             closeCustomDialog();
-            startCallSession(byName, peerId, true).catch((error) => {
-                console.error('Failed to start outgoing call session:', error);
-                showToast('Unable to start camera/microphone for this call', 'error');
+            startHostedCallRoom(byName, `firetech-${roomName}`).catch((error) => {
+                console.error('Failed to start hosted call session:', error);
+                showToast('Unable to join hosted call', 'error');
                 cleanupCallSession(false);
             });
         }
@@ -6132,20 +6251,6 @@ function openVideoCallModal(targetName, targetId, callType) {
     setCallStatus('Dialing...');
     appendCallLog(`Outgoing ${callType.toLowerCase()} to ${targetName}`);
 
-    ensureRtcConfigLoaded()
-        .then(() => ensureLocalCallStream())
-        .then(() => {
-            const localVideo = document.getElementById('localCallVideo');
-            if (localVideo && localCallStream) {
-                localVideo.srcObject = localCallStream;
-                ensureLocalPreviewPlayback(localVideo);
-                appendCallLog('Local preview started before answer');
-            }
-        })
-        .catch((error) => {
-            appendCallLog(`Local preview unavailable: ${error?.message || error}`);
-        });
-
     if (socket && socket.connected && targetId) {
         socket.emit('start video call', { 
             targetId: targetId, 
@@ -6184,9 +6289,9 @@ function handleIncomingVideoCall(payload) {
                 toId: activeCallState.peerId
             });
             closeCustomDialog();
-            startCallSession(callerName, activeCallState.peerId, false).catch((error) => {
-                console.error('Failed to initialize incoming call session:', error);
-                showToast('Unable to initialize call media devices', 'error');
+            startHostedCallRoom(callerName, `firetech-${activeCallState.callId}`).catch((error) => {
+                console.error('Failed to initialize hosted call session:', error);
+                showToast('Unable to join hosted call', 'error');
                 cleanupCallSession(false);
             });
             
@@ -6613,6 +6718,9 @@ async function startCallSession(peerName, peerId, isCaller) {
 }
 
 function endVideoCall() {
+    if (currentCallProvider === 'hosted' && currentJitsiApi) {
+        currentJitsiApi.executeCommand('hangup');
+    }
     
     window.userIntentionallEndedCall = true;
     
@@ -6628,6 +6736,10 @@ function endVideoCall() {
 }
 
 function toggleLocalMute() {
+    if (currentCallProvider === 'hosted' && currentJitsiApi) {
+        currentJitsiApi.executeCommand('toggleAudio');
+        return;
+    }
     if (!localCallStream) {
         showToast('Microphone unavailable on this device/browser', 'warning');
         return;
@@ -6655,6 +6767,10 @@ function toggleLocalMute() {
 }
 
 function toggleCallCamera() {
+    if (currentCallProvider === 'hosted' && currentJitsiApi) {
+        currentJitsiApi.executeCommand('toggleVideo');
+        return;
+    }
     if (!localCallStream) {
         showToast('Camera unavailable on this device/browser', 'warning');
         return;
@@ -6733,6 +6849,17 @@ function cleanupCallSession(keepDialogOpen = false) {
     
     stopIncomingCallAlert();
     stopCallTimer();
+
+    if (currentJitsiApi) {
+        try {
+            currentJitsiApi.dispose();
+        } catch (_) {
+        }
+        currentJitsiApi = null;
+    }
+    currentCallProvider = 'webrtc';
+    currentCallRoomName = null;
+    setHostedCallVisible(false);
 
     if (peerConnection) {
         peerConnection.onicecandidate = null;
