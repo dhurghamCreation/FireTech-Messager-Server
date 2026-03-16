@@ -3098,7 +3098,7 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.8.2</span>
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.8.3</span>
                     <button class="header-btn mobile-essential" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
@@ -3688,15 +3688,15 @@
                     <div id="callOverlayPeerName" style="color:#fff; font-size:18px; font-weight:700;"></div>
                     <div id="callTimerLabel" style="color:rgba(255,255,255,0.7); font-size:13px; margin-top:4px;">00:00:00</div>
                 </div>
-                <button onclick="toggleCallDebug()" style="background:rgba(255,255,255,0.18); border:none; color:white; padding:7px 13px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:600;">🔧 Debug</button>
+                <button id="callDebugBtn" style="background:rgba(255,255,255,0.18); border:none; color:white; padding:7px 13px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:600;">🔧 Debug</button>
             </div>
 
             <div id="callDebugPanel"></div>
 
             <div class="call-overlay-controls">
-                <button id="muteBtn" class="call-ctrl-btn" onclick="toggleLocalMute()" title="Mute/Unmute">🎤</button>
-                <button id="cameraBtn" class="call-ctrl-btn" onclick="toggleCallCamera()" title="Camera on/off">📷</button>
-                <button class="call-end-btn" onclick="endVideoCall()" title="End Call">📵</button>
+                <button id="muteBtn" class="call-ctrl-btn" title="Mute/Unmute">🎤</button>
+                <button id="cameraBtn" class="call-ctrl-btn" title="Camera on/off">📷</button>
+                <button id="endCallBtn" class="call-end-btn" title="End Call">📵</button>
             </div>
         </div>
     </div>
@@ -3717,7 +3717,7 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="client.js?v=2.8.2"></script>
+    <script src="client.js?v=2.8.3"></script>
 </body>
 </html>
 

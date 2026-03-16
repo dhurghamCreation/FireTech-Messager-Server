@@ -73,26 +73,7 @@ app.get('/api/rtc-config', (req, res) => {
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
     { urls: 'stun:stun4.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478' },
-    {
-      urls: [
-        'turn:a.relay.metered.ca:80',
-        'turn:a.relay.metered.ca:80?transport=tcp',
-        'turn:a.relay.metered.ca:443',
-        'turns:a.relay.metered.ca:443?transport=tcp'
-      ],
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: [
-        'turn:openrelay.metered.ca:80',
-        'turn:openrelay.metered.ca:443',
-        'turn:openrelay.metered.ca:443?transport=tcp'
-      ],
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
+    { urls: 'stun:stun.cloudflare.com:3478' }
   ];
 
   const turnUrlsRaw = process.env.TURN_URLS || '';

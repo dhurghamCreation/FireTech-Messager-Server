@@ -100,6 +100,13 @@ function getDefaultIceServers() {
     ];
 }
 
+function hasTurnServerConfigured(iceServers = []) {
+    return iceServers.some((server) => {
+        const urls = Array.isArray(server?.urls) ? server.urls : [server?.urls];
+        return urls.some((url) => typeof url === 'string' && /^turns?:/i.test(url));
+    });
+}
+
 async function ensureRtcConfigLoaded() {
     if (rtcConfigLoaded) return;
     rtcConfigLoaded = true;
@@ -341,6 +348,50 @@ function ensureRemoteMediaPlayback(videoEl) {
     // Extra retry loop for slow mobile media pipelines.
     setTimeout(tryPlay, 250);
     setTimeout(tryPlay, 900);
+}
+
+function ensureLocalPreviewPlayback(videoEl) {
+    if (!videoEl || !videoEl.srcObject) return;
+
+    videoEl.muted = true;
+    videoEl.autoplay = true;
+    videoEl.playsInline = true;
+
+    const tryPlay = () => {
+        videoEl.play().catch(() => {});
+    };
+
+    tryPlay();
+    setTimeout(tryPlay, 120);
+    setTimeout(tryPlay, 500);
+}
+
+let callControlBindingsDone = false;
+function bindCallControlButtons() {
+    if (callControlBindingsDone) return;
+
+    const bindings = [
+        ['muteBtn', toggleLocalMute],
+        ['cameraBtn', toggleCallCamera],
+        ['endCallBtn', endVideoCall],
+        ['callDebugBtn', toggleCallDebug]
+    ];
+
+    bindings.forEach(([id, action]) => {
+        const button = document.getElementById(id);
+        if (!button) return;
+
+        const handlePress = (event) => {
+            event.preventDefault();
+            action();
+        };
+
+        button.addEventListener('click', handlePress);
+        button.addEventListener('touchend', handlePress, { passive: false });
+        button.style.pointerEvents = 'auto';
+    });
+
+    callControlBindingsDone = true;
 }
 
 
@@ -5718,6 +5769,7 @@ function showToastClickable(message, type = 'success', chatContext = null) {
 window.addEventListener('DOMContentLoaded', () => {
     loadTheme();
     applySettingsToUI();
+    bindCallControlButtons();
     pinnedChats = JSON.parse(localStorage.getItem('pinnedChats') || '[]');
     joinedCommunities = JSON.parse(localStorage.getItem('joinedCommunities') || '[]');
     joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
@@ -6206,6 +6258,7 @@ function createPeerConnection(peerId) {
     const runtimeIceServers = Array.isArray(rtcRuntimeConfig?.iceServers) && rtcRuntimeConfig.iceServers.length
         ? rtcRuntimeConfig.iceServers
         : getDefaultIceServers();
+    const hasTurnServersConfigured = hasTurnServerConfigured(runtimeIceServers);
     activeIceServers = runtimeIceServers;
 
     peerConnection = new RTCPeerConnection({
@@ -6400,13 +6453,15 @@ function createPeerConnection(peerId) {
         callIceFailureCount += 1;
 
         try {
-            if (callIceFailureCount >= 2 && !forceRelayOnly) {
+            if (callIceFailureCount >= 2 && !forceRelayOnly && hasTurnServersConfigured) {
                 forceRelayOnly = true;
                 peerConnection.setConfiguration({
                     iceServers: activeIceServers,
                     iceTransportPolicy: 'relay'
                 });
                 showToast('Switching call to relay mode for network compatibility...', 'warning');
+            } else if (callIceFailureCount >= 2 && !hasTurnServersConfigured) {
+                showToast('Retrying call without relay fallback...', 'warning');
             }
 
             peerConnection.restartIce?.();
@@ -6478,7 +6533,7 @@ async function startCallSession(peerName, peerId, isCaller) {
     const localVideo = document.getElementById('localCallVideo');
     if (localVideo && localCallStream) {
         localVideo.srcObject = localCallStream;
-        localVideo.play().catch(() => {});
+        ensureLocalPreviewPlayback(localVideo);
     } else if (localVideo) {
         localVideo.srcObject = null;
     }
