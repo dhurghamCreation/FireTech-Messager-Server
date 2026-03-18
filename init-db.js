@@ -72,23 +72,23 @@ async function initializeDatabase() {
 
     
     await ShopItem.insertMany(defaultItems);
-    console.log(`✅ Successfully added ${defaultItems.length} shop items to database`);
+    console.log(` Successfully added ${defaultItems.length} shop items to database`);
 
     
     const items = await ShopItem.find();
-    console.log('\n📦 Shop Items:');
+    console.log('\n Shop Items:');
     items.forEach(item => {
       console.log(`  - ${item.name}: ${item.price} coins`);
     });
 
     mongoose.connection.close();
-    console.log('\n✨ Database initialization complete!');
+    console.log('\n Database initialization complete!');
   } catch (error) {
-    console.error('❌ Error initializing database:', error.message);
+    console.error(' Error initializing database:', error.message);
     mongoose.connection.close();
     process.exit(1);
   }
 }
 
-console.log('🚀 Initializing Discord-Like App Database...');
+console.log(' Initializing Discord-Like App Database...');
 initializeDatabase();

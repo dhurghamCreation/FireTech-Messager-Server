@@ -158,7 +158,7 @@ const User = sequelize.define('User', {
   },
   coins: {
     type: DataTypes.INTEGER,
-    defaultValue: 1000
+    defaultValue: 0
   }
 });
 
@@ -322,7 +322,18 @@ app.post('/api/register', async (req, res) => {
       process.env.JWT_SECRET || 'secret_key'
     );
 
-    res.status(201).json({ token, user: { id: user.id, username, email } });
+    res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        bio: user.bio,
+        phoneNumber: user.phoneNumber,
+        coins: user.coins
+      }
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -397,21 +408,30 @@ app.post('/api/reset-password', async (req, res) => {
 
 app.get('/api/profile/:userId', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findByPk(req.params.userId, { include: ['friends'] });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    res.json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      avatar: user.avatar,
-      bio: user.bio,
-      phoneNumber: user.phoneNumber,
-      status: user.status,
-      coins: user.coins,
-      friends: user.friends,
-      createdAt: user.createdAt
+    const user = await User.findByPk(req.params.userId, {
+      attributes: ['id', 'username', 'avatar', 'bio', 'phoneNumber', 'coins', 'status']
     });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/profile/coins', authenticateToken, async (req, res) => {
+  try {
+    const { coins } = req.body;
+    if (typeof coins !== 'number' || !Number.isFinite(coins) || coins < 0) {
+      return res.status(400).json({ error: 'Invalid coins value' });
+    }
+    
+    const user = await User.findByPk(req.user.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    user.coins = Math.floor(coins);
+    await user.save();
+    
+    res.json({ message: 'Coins synced', coins: user.coins });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -712,7 +732,7 @@ app.delete('/api/dms/:friendId', authenticateToken, async (req, res) => {
 
 app.get('/api/shop', authenticateToken, async (req, res) => {
   try {
-    const items = await ShopItem.findAll();
+    const items = await ensureShopItemsAvailable();
     res.json(items);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -721,8 +741,16 @@ app.get('/api/shop', authenticateToken, async (req, res) => {
 
 app.post('/api/shop/buy', authenticateToken, async (req, res) => {
   try {
-    const { itemId } = req.body;
-    const item = await ShopItem.findByPk(itemId);
+    const requestedItemId = String(req.body?.itemId || '').trim();
+    if (!requestedItemId) {
+      return res.status(400).json({ error: 'itemId is required' });
+    }
+
+    let item = await ShopItem.findByPk(requestedItemId);
+    if (!item) {
+      item = await ShopItem.findOne({ where: { itemId: requestedItemId } });
+    }
+
     const user = await User.findByPk(req.user.userId);
 
     if (!item) return res.status(404).json({ error: 'Item not found' });
@@ -818,6 +846,7 @@ const roomMessages = new Map();
 const roomMembers = new Map();
 const roomRoles = new Map();
 const roomProfiles = new Map();
+const roomMeta = new Map();
 
 function normalizeRoomKey(roomType, roomName) {
   return String(roomType || 'community') + ':' + String(roomName || '').trim().toLowerCase();
@@ -916,11 +945,20 @@ function upsertRoomMember(roomType, roomName, socket) {
   const membersBySocket = roomMembers.get(roomKey);
   const rolesByUser = roomRoles.get(roomKey);
   const userIdKey = String(socket.userId);
+  const meta = getOrCreateRoomMeta(roomType, roomName, socket.userId);
+
+  if (!meta.creatorId) {
+    meta.creatorId = userIdKey;
+  }
 
   if (!rolesByUser.has(userIdKey)) {
-    const uniqueUsers = new Set(Array.from(membersBySocket.values()).map((m) => String(m.userId)));
-    const isFirstMember = uniqueUsers.size === 0;
-    rolesByUser.set(userIdKey, isFirstMember ? 'Owner' : 'Member');
+    if (String(meta.creatorId) === userIdKey) {
+      rolesByUser.set(userIdKey, 'Owner');
+    } else if (meta.contributorIds.has(userIdKey)) {
+      rolesByUser.set(userIdKey, 'Admin');
+    } else {
+      rolesByUser.set(userIdKey, 'Member');
+    }
   }
 
   membersBySocket.set(socket.id, {
@@ -943,6 +981,7 @@ function removeRoomMember(roomType, roomName, socketId) {
   if (membersBySocket.size === 0) {
     roomMembers.delete(roomKey);
     roomRoles.delete(roomKey);
+    roomMeta.delete(roomKey);
     return;
   }
 
@@ -951,6 +990,18 @@ function removeRoomMember(roomType, roomName, socketId) {
 
 function emitUsersUpdate() {
   io.emit('users update', Array.from(onlineUsers.values()));
+}
+
+function getOrCreateRoomMeta(roomType, roomName, creatorId = null) {
+  const roomKey = normalizeRoomKey(roomType, roomName);
+  if (!roomMeta.has(roomKey)) {
+    roomMeta.set(roomKey, {
+      creatorId: creatorId ? String(creatorId) : null,
+      contributorIds: new Set(),
+      updatedAt: new Date().toISOString()
+    });
+  }
+  return roomMeta.get(roomKey);
 }
 
 function getOrCreateRoomProfile(roomType, roomName) {
@@ -967,7 +1018,15 @@ function getOrCreateRoomProfile(roomType, roomName) {
 
 function emitRoomProfileUpdate(roomType, roomName, profile, previousRoomName = null) {
   const roomKey = normalizeRoomKey(roomType, roomName);
+  // Broadcast to room members first
   io.to(roomKey).emit('room profile updated', {
+    roomType,
+    roomName,
+    previousRoomName,
+    profile
+  });
+  // Also broadcast to all connected users so they see updates in lists/modals even if not in the room
+  io.emit('room profile updated broadcast', {
     roomType,
     roomName,
     previousRoomName,
@@ -995,6 +1054,11 @@ function renameRoomState(roomType, previousRoomName, nextRoomName) {
     roomProfiles.delete(oldKey);
   }
 
+  if (roomMeta.has(oldKey)) {
+    roomMeta.set(newKey, roomMeta.get(oldKey));
+    roomMeta.delete(oldKey);
+  }
+
   if (roomMembers.has(oldKey)) {
     const membersBySocket = roomMembers.get(oldKey);
     roomMembers.set(newKey, membersBySocket);
@@ -1014,6 +1078,43 @@ function renameRoomState(roomType, previousRoomName, nextRoomName) {
   }
 
   return newKey;
+}
+
+function getBotResponse(input = '') {
+  const text = String(input || '').trim().toLowerCase();
+  const cleaned = text.replace(/^\/firetech\s*/i, '').replace(/^@firetech\s*/i, '').trim();
+
+  if (!cleaned || cleaned.includes('help')) {
+    return 'FireTech commands: help, security, encryption, network, password, twofa, phishing, malware, vpn, hello';
+  }
+  if (cleaned.includes('security')) {
+    return 'Security tip: Keep software updated, use strong passwords, enable 2FA, and never share credentials.';
+  }
+  if (cleaned.includes('encryption')) {
+    return 'Encryption fact: End-to-end encryption ensures only sender and receiver can read messages. FireTech uses modern protocols.';
+  }
+  if (cleaned.includes('network')) {
+    return 'Network insight: Your messages are routed through secure servers. Network traffic is protected from eavesdropping.';
+  }
+  if (cleaned.includes('password')) {
+    return 'Password best practice: Use 12+ characters, mix uppercase/lowercase/numbers/symbols, and never reuse passwords.';
+  }
+  if (cleaned.includes('2fa') || cleaned.includes('twofa')) {
+    return '2FA (Two-Factor Authentication) significantly reduces account takeover risk. Enable it on all important accounts.';
+  }
+  if (cleaned.includes('phishing')) {
+    return 'Phishing warning: Check sender email, verify links before clicking, and never provide credentials to unsolicited requests.';
+  }
+  if (cleaned.includes('malware')) {
+    return 'Malware protection: Use antivirus software, avoid downloading from untrusted sources, and keep OS updated.';
+  }
+  if (cleaned.includes('vpn')) {
+    return 'VPN (Virtual Private Network) encrypts your connection and masks your IP. Useful on public WiFi networks.';
+  }
+  if (cleaned.includes('hello') || cleaned.includes('hi')) {
+    return '⚡ FireTech Bot online. Your security is my priority. Ask for security tips or network info!';
+  }
+  return `I heard: "${cleaned}". Type "help" for my security commands.`;
 }
 
 io.on('connection', (socket) => {
@@ -1093,6 +1194,43 @@ io.on('connection', (socket) => {
     try {
       const { toUserId, content, mediaType, mediaUrl } = data;
       const fromUser = await User.findByPk(socket.userId);
+
+      if (String(toUserId) === 'bot_firetech_0') {
+        const dmPayload = {
+          messageId: uuidv4(),
+          from: socket.userId,
+          fromUsername: fromUser.username,
+          fromAvatar: fromUser.avatar,
+          to: 'bot_firetech_0',
+          toUsername: '⚡ FireTech Bot',
+          content,
+          mediaType: mediaType || 'text',
+          mediaUrl: mediaUrl || null,
+          timestamp: new Date().toISOString()
+        };
+
+        emitToUser(socket.userId, 'dm message', dmPayload);
+
+        const botPayload = {
+          messageId: uuidv4(),
+          from: 'bot_firetech_0',
+          fromUsername: '⚡ FireTech Bot',
+          fromAvatar: null,
+          to: socket.userId,
+          toUsername: fromUser.username,
+          content: getBotResponse(content),
+          mediaType: 'text',
+          mediaUrl: null,
+          isBot: true,
+          timestamp: new Date().toISOString()
+        };
+
+        setTimeout(() => {
+          emitToUser(socket.userId, 'dm message', botPayload);
+        }, 350 + Math.floor(Math.random() * 500));
+        return;
+      }
+
       const toUser = await User.findByPk(toUserId);
 
       if (!toUser) {
@@ -1134,6 +1272,29 @@ io.on('connection', (socket) => {
           toUserId,
           delivered: false
         });
+      }
+
+      const rawContent = String(content || '').trim();
+      const askBot = rawContent.toLowerCase().startsWith('/firetech') || rawContent.toLowerCase().startsWith('@firetech');
+      if (askBot) {
+        const botPayload = {
+          messageId: uuidv4(),
+          from: 'bot_firetech_0',
+          fromUsername: '⚡ FireTech Bot',
+          fromAvatar: null,
+          to: toUserId,
+          toUsername: toUser.username,
+          content: getBotResponse(rawContent),
+          mediaType: 'text',
+          mediaUrl: null,
+          isBot: true,
+          timestamp: new Date().toISOString()
+        };
+
+        setTimeout(() => {
+          emitToUser(socket.userId, 'dm message', botPayload);
+          emitToUser(toUserId, 'dm message', botPayload);
+        }, 400 + Math.floor(Math.random() * 600));
       }
     } catch (error) {
       socket.emit('error', error.message);
@@ -1306,6 +1467,10 @@ io.on('connection', (socket) => {
     if (!roomType || !roomName) return;
 
     const roomKey = normalizeRoomKey(roomType, roomName);
+    const meta = getOrCreateRoomMeta(roomType, roomName, socket.userId);
+    if (!meta.creatorId) {
+      meta.creatorId = String(socket.userId);
+    }
     let rolesByUser = roomRoles.get(roomKey);
     if (!rolesByUser) {
       rolesByUser = new Map();
@@ -1325,6 +1490,11 @@ io.on('connection', (socket) => {
         ? 'Only Owner or Admin can edit group appearance'
         : 'Only Leader/Vice Leader can edit room appearance');
       return;
+    }
+
+    if (effectiveRole === 'Owner' || effectiveRole === 'Admin') {
+      meta.contributorIds.add(String(socket.userId));
+      meta.updatedAt = new Date().toISOString();
     }
 
     const safeName = String(patch?.name || '').trim();
@@ -1385,6 +1555,29 @@ io.on('connection', (socket) => {
     }
 
     io.to(roomKey).emit('room message', messagePayload);
+
+    const rawContent = String(data?.content || '').trim();
+    const askBot = rawContent.toLowerCase().startsWith('/firetech') || rawContent.toLowerCase().startsWith('@firetech');
+    if (askBot) {
+      const botPayload = {
+        messageId: uuidv4(),
+        from: 'bot_firetech_0',
+        fromUsername: '⚡ FireTech Bot',
+        fromAvatar: null,
+        content: getBotResponse(rawContent),
+        mediaType: 'text',
+        mediaUrl: null,
+        roomType,
+        roomName,
+        isBot: true,
+        timestamp: new Date().toISOString()
+      };
+
+      setTimeout(() => {
+        appendRoomMessage(roomType, roomName, botPayload);
+        io.to(roomKey).emit('room message', botPayload);
+      }, 500 + Math.floor(Math.random() * 800));
+    }
   });
 
   socket.on('clear room chat', (data) => {
@@ -1625,18 +1818,27 @@ async function seedShopItems() {
   const existingCount = await ShopItem.count();
   if (existingCount > 0) return;
 
-  const items = [
-    { itemId: 'banner_neon', name: 'Neon Banner Effect', description: 'Animated neon gradient banner for your profile.', price: 450, category: 'Banners', image: '' },
-    { itemId: 'badge_founder', name: 'Founder Badge', description: 'Exclusive badge shown next to your username.', price: 320, category: 'Badges', image: '' },
-    { itemId: 'color_pack_burst', name: 'Color Burst Pack', description: 'Unlock vibrant accent color themes.', price: 380, category: 'Themes', image: '' },
-    { itemId: 'chat_fx_glow', name: 'Message Glow FX', description: 'Subtle glow animation for sent messages.', price: 260, category: 'Effects', image: '' },
-    { itemId: 'avatar_ring_aura', name: 'Aura Avatar Ring', description: 'Premium animated ring around your avatar.', price: 520, category: 'Avatar', image: '' },
-    { itemId: 'nameplate_crystal', name: 'Crystal Nameplate', description: 'Polished nameplate style in member list.', price: 410, category: 'Nameplates', image: '' },
-    { itemId: 'theme_midnight', name: 'Midnight Theme Pack', description: 'Elegant dark gradients and UI accents.', price: 290, category: 'Themes', image: '' },
-    { itemId: 'emoji_pack_pro', name: 'Pro Emoji Pack', description: 'Premium emoji reactions collection.', price: 210, category: 'Emotes', image: '' }
-  ];
+  await ShopItem.bulkCreate(DEFAULT_SHOP_ITEMS);
+}
 
-  await ShopItem.bulkCreate(items);
+const DEFAULT_SHOP_ITEMS = [
+  { itemId: 'banner_neon', name: 'Neon Banner Effect', description: 'Animated neon gradient banner for your profile.', price: 450, category: 'Banners', image: '' },
+  { itemId: 'badge_founder', name: 'Founder Badge', description: 'Exclusive badge shown next to your username.', price: 320, category: 'Badges', image: '' },
+  { itemId: 'color_pack_burst', name: 'Color Burst Pack', description: 'Unlock vibrant accent color themes.', price: 380, category: 'Themes', image: '' },
+  { itemId: 'chat_fx_glow', name: 'Message Glow FX', description: 'Subtle glow animation for sent messages.', price: 260, category: 'Effects', image: '' },
+  { itemId: 'avatar_ring_aura', name: 'Aura Avatar Ring', description: 'Premium animated ring around your avatar.', price: 520, category: 'Avatar', image: '' },
+  { itemId: 'nameplate_crystal', name: 'Crystal Nameplate', description: 'Polished nameplate style in member list.', price: 410, category: 'Nameplates', image: '' },
+  { itemId: 'theme_midnight', name: 'Midnight Theme Pack', description: 'Elegant dark gradients and UI accents.', price: 290, category: 'Themes', image: '' },
+  { itemId: 'emoji_pack_pro', name: 'Pro Emoji Pack', description: 'Premium emoji reactions collection.', price: 210, category: 'Emotes', image: '' }
+];
+
+async function ensureShopItemsAvailable() {
+  let items = await ShopItem.findAll();
+  if (items.length > 0) return items;
+
+  await ShopItem.bulkCreate(DEFAULT_SHOP_ITEMS);
+  items = await ShopItem.findAll();
+  return items;
 }
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';

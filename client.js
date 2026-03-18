@@ -1,6 +1,842 @@
 let socket;
 let currentUser = null;
 let currentToken = null;
+
+
+const LANGUAGES = [
+    { code: 'en', name: 'English',    flag: '🇺🇸', country: 'United States' },
+    { code: 'es', name: 'Español',    flag: '🇪🇸', country: 'España' },
+    { code: 'fr', name: 'Français',   flag: '🇫🇷', country: 'France' },
+    { code: 'de', name: 'Deutsch',    flag: '🇩🇪', country: 'Deutschland' },
+    { code: 'ja', name: '日本語',      flag: '🇯🇵', country: 'Japan' },
+    { code: 'pt', name: 'Português',  flag: '🇧🇷', country: 'Brasil' },
+    { code: 'ar', name: 'العربية',    flag: '🇸🇦', country: 'السعودية' },
+    { code: 'zh', name: '中文',        flag: '🇨🇳', country: '中国' },
+    { code: 'ru', name: 'Русский',    flag: '🇷🇺', country: 'Россия' },
+    { code: 'ko', name: '한국어',      flag: '🇰🇷', country: '대한민국' },
+    { code: 'tr', name: 'Türkçe',     flag: '🇹🇷', country: 'Türkiye' },
+    { code: 'it', name: 'Italiano',   flag: '🇮🇹', country: 'Italia' },
+];
+const I18N = {
+    en: { login:'Login', register:'Register', send:'Send', settings:'Settings', friends:'Friends', profile:'Profile', logout:'Logout', search:'Search...', welcome:'Welcome back!', typeMsg:'Type a message...' },
+    es: { login:'Ingresar', register:'Registrarse', send:'Enviar', settings:'Ajustes', friends:'Amigos', profile:'Perfil', logout:'Cerrar sesión', search:'Buscar...', welcome:'¡Bienvenido!', typeMsg:'Escribe un mensaje...' },
+    fr: { login:'Connexion', register:"S'inscrire", send:'Envoyer', settings:'Paramètres', friends:'Amis', profile:'Profil', logout:'Déconnexion', search:'Rechercher...', welcome:'Content de vous revoir!', typeMsg:'Tapez un message...' },
+    de: { login:'Anmelden', register:'Registrieren', send:'Senden', settings:'Einstellungen', friends:'Freunde', profile:'Profil', logout:'Abmelden', search:'Suchen...', welcome:'Willkommen zurück!', typeMsg:'Nachricht eingeben...' },
+    ja: { login:'ログイン', register:'登録', send:'送信', settings:'設定', friends:'友達', profile:'プロフィール', logout:'ログアウト', search:'検索...', welcome:'おかえりなさい！', typeMsg:'メッセージを入力...' },
+    pt: { login:'Entrar', register:'Cadastrar', send:'Enviar', settings:'Configurações', friends:'Amigos', profile:'Perfil', logout:'Sair', search:'Pesquisar...', welcome:'Bem-vindo de volta!', typeMsg:'Digite uma mensagem...' },
+    ar: { login:'دخول', register:'تسجيل', send:'إرسال', settings:'الإعدادات', friends:'أصدقاء', profile:'الملف الشخصي', logout:'خروج', search:'بحث...', welcome:'مرحباً بعودتك!', typeMsg:'اكتب رسالة...' },
+    zh: { login:'登录', register:'注册', send:'发送', settings:'设置', friends:'朋友', profile:'个人资料', logout:'退出', search:'搜索...', welcome:'欢迎回来！', typeMsg:'输入消息...' },
+    ru: { login:'Войти', register:'Регистрация', send:'Отправить', settings:'Настройки', friends:'Друзья', profile:'Профиль', logout:'Выход', search:'Поиск...', welcome:'С возвращением!', typeMsg:'Введите сообщение...' },
+    ko: { login:'로그인', register:'회원가입', send:'전송', settings:'설정', friends:'친구', profile:'프로필', logout:'로그아웃', search:'검색...', welcome:'다시 오신 것을 환영해요!', typeMsg:'메시지 입력...' },
+    tr: { login:'Giriş', register:'Kayıt Ol', send:'Gönder', settings:'Ayarlar', friends:'Arkadaşlar', profile:'Profil', logout:'Çıkış', search:'Ara...', welcome:'Tekrar hoş geldiniz!', typeMsg:'Mesaj yaz...' },
+    it: { login:'Accedi', register:'Registrati', send:'Invia', settings:'Impostazioni', friends:'Amici', profile:'Profilo', logout:'Esci', search:'Cerca...', welcome:'Ben tornato!', typeMsg:'Scrivi un messaggio...' },
+};
+const UI_TRANSLATIONS = {
+    en: {
+        'Login': 'Login', 'Register': 'Register', 'Create Account': 'Create Account', 'Already have an account?': 'Already have an account?', "Don't have an account?": "Don't have an account?", 'Forgot password?': 'Forgot password?', 'Reset Password': 'Reset Password',
+        '🪪 Account': '🪪 Account', '🛡️ Privacy': '🛡️ Privacy', '🗨️ Chat': '🗨️ Chat', '📬 Notifications': '📬 Notifications', '🪄 Appearance': '🪄 Appearance', '🧭 Language': '🧭 Language', '📈 Statistics': '📈 Statistics',
+        'Settings': 'Settings', 'Message...': 'Message...', 'Send': 'Send', 'Close': 'Close', 'Communities': 'Communities', 'Groups': 'Groups', 'Open': 'Open', 'Join': 'Join', 'Manage': 'Manage', 'Create New Group': 'Create New Group',
+        '⚙️ Settings': '⚙️ Settings', '➕ Create New Group': '➕ Create New Group',
+        'Account Settings': 'Account Settings', 'Privacy & Safety': 'Privacy & Safety', 'Chat Settings': 'Chat Settings', 'Notifications': 'Notifications', 'Appearance': 'Appearance', '📊 Your Statistics': '📊 Your Statistics', '🌐 Language': '🌐 Language',
+        'Email': 'Email', 'Change Username': 'Change Username', 'Update Username': 'Update Username', 'Delete Account': 'Delete Account', 'Switch Account': 'Switch Account', 'Desktop notifications': 'Desktop notifications', 'Message sound': 'Message sound',
+        'Theme': 'Theme', 'Dark': 'Dark', 'Light': 'Light', 'Custom Colors': 'Custom Colors', 'Compact mode': 'Compact mode', 'Reset Statistics': 'Reset Statistics', '🎯 Events & Challenges': '🎯 Events & Challenges',
+        'App Language': 'App Language', 'Choose your preferred language. UI text will update immediately.': 'Choose your preferred language. UI text will update immediately.', 'Current:': 'Current:', 'All messages': 'All messages', 'Only mentions': 'Only mentions', 'Nothing': 'Nothing',
+        'Default Microphone': 'Default Microphone', 'Default Speaker': 'Default Speaker', 'Off': 'Off', '30 seconds': '30 seconds', '1 minute': '1 minute', '5 minutes': '5 minutes', '1 hour': '1 hour', 'Small': 'Small', 'Medium': 'Medium', 'Large': 'Large',
+        'Trivia Challenge': 'Trivia Challenge', 'Question': 'Question', 'Type your answer': 'Type your answer', 'Speed Typing': 'Speed Typing', 'Type this exactly': 'Type this exactly', 'Memory Challenge': 'Memory Challenge', 'Click emojis in order': 'Click emojis in order', 'Math Blitz': 'Math Blitz', 'Riddle Challenge': 'Riddle Challenge', 'Answer the riddle': 'Answer the riddle', 'Reaction Speed': 'Reaction Speed', 'Word Scramble': 'Word Scramble', 'Unscramble the word': 'Unscramble the word',
+        'Challenge cancelled': 'Challenge cancelled', 'coins earned': 'coins earned', 'correct': 'correct', 'Try again': 'Try again', 'Challenge complete': 'Challenge complete', 'Error loading': 'Error loading', 'Completed': 'Completed', 'Network error': 'Network error',
+        'Success': 'Success', 'Warning': 'Warning', 'Error': 'Error', 'Info': 'Info', 'Please login': 'Please login', 'Invalid input': 'Invalid input',
+        'Pending request': 'Pending request', 'Accept': 'Accept', 'Decline': 'Decline', 'No friends yet': 'No friends yet', 'Online': 'Online', 'Offline': 'Offline', 'Profile': 'Profile', 'No pending requests': 'No pending requests',
+        'Premium Shop': 'Premium Shop', 'Instant equip items, profile cosmetics, and seasonal packs': 'Instant equip items, profile cosmetics, and seasonal packs', 'Live Deals: up to 20% off featured items': 'Live Deals: up to 20% off featured items',
+        'No shop items available': 'No shop items available', 'Buy Now': 'Buy Now', 'Need Coins': 'Need Coins', 'Need': 'Need', 'You have': 'You have', 'Item purchased and applied!': 'Item purchased and applied!'
+    },
+    es: { 'Login':'Ingresar','Register':'Registrarse','Create Account':'Crear cuenta','Already have an account?':'¿Ya tienes una cuenta?','Don\'t have an account?':'¿No tienes una cuenta?','Forgot password?':'¿Olvidaste tu contraseña?','Reset Password':'Restablecer contraseña','🪪 Account':'🪪 Cuenta','🛡️ Privacy':'🛡️ Privacidad','🗨️ Chat':'🗨️ Chat','📬 Notifications':'📬 Notificaciones','🪄 Appearance':'🪄 Apariencia','🧭 Language':'🧭 Idioma','📈 Statistics':'📈 Estadísticas','⚙️ Settings':'⚙️ Ajustes','Message...':'Mensaje...','Send':'Enviar','Close':'Cerrar','Communities':'Comunidades','Groups':'Grupos','Open':'Abrir','Join':'Unirse','Manage':'Administrar','➕ Create New Group':'➕ Crear grupo','Account Settings':'Configuración de cuenta','Privacy & Safety':'Privacidad y seguridad','Chat Settings':'Configuración del chat','Notifications':'Notificaciones','Appearance':'Apariencia','📊 Your Statistics':'📊 Tus estadísticas','🌐 Language':'🌐 Idioma','Email':'Correo','Change Username':'Cambiar nombre','Update Username':'Actualizar nombre','Delete Account':'Eliminar cuenta','Switch Account':'Cambiar cuenta','Desktop notifications':'Notificaciones de escritorio','Message sound':'Sonido del mensaje','Theme':'Tema','Dark':'Oscuro','Light':'Claro','Custom Colors':'Colores personalizados','Compact mode':'Modo compacto','Reset Statistics':'Restablecer estadísticas','🎯 Events & Challenges':'🎯 Eventos y desafíos','App Language':'Idioma de la app','Choose your preferred language. UI text will update immediately.':'Elige tu idioma. La interfaz se actualiza al instante.','Current:':'Actual:','All messages':'Todos los mensajes','Only mentions':'Solo menciones','Nothing':'Nada','Default Microphone':'Micrófono predeterminado','Default Speaker':'Altavoz predeterminado','Off':'Apagado','30 seconds':'30 segundos','1 minute':'1 minuto','5 minutes':'5 minutos','1 hour':'1 hora','Small':'Pequeño','Medium':'Mediano','Large':'Grande','Trivia Challenge':'Desafío de trivia','Question':'Pregunta','Type your answer':'Escribe tu respuesta','Speed Typing':'Escritura rápida','Type this exactly':'Escribe esto exactamente','Memory Challenge':'Desafío de memoria','Click emojis in order':'Haz clic en emoji en orden','Math Blitz':'Blitz matemático','Riddle Challenge':'Desafío de adivinanzas','Answer the riddle':'Responde la adivinanza','Reaction Speed':'Velocidad de reacción','Word Scramble':'Palabras revueltas','Unscramble the word':'Descramble la palabra','Challenge cancelled':'Desafío cancelado','coins earned':'monedas ganadas','correct':'correcto','Try again':'Intenta de nuevo','Challenge complete':'Desafío completo','Error loading':'Error al cargar','Completed':'Completado','Network error':'Error de red','Success':'Éxito','Warning':'Advertencia','Error':'Error','Info':'Información','Please login':'Por favor inicia sesión','Invalid input':'Entrada inválida' },
+    fr: { 'Login':'Connexion','Register':'Inscription','Create Account':'Créer un compte','Already have an account?':'Vous avez déjà un compte ?','Don\'t have an account?':'Vous n\'avez pas de compte ?','Forgot password?':'Mot de passe oublié ?','Reset Password':'Réinitialiser le mot de passe','🪪 Account':'🪪 Compte','🛡️ Privacy':'🛡️ Confidentialité','🗨️ Chat':'🗨️ Chat','📬 Notifications':'📬 Notifications','🪄 Appearance':'🪄 Apparence','🧭 Language':'🧭 Langue','📈 Statistics':'📈 Statistiques','⚙️ Settings':'⚙️ Paramètres','Message...':'Message...','Send':'Envoyer','Close':'Fermer','Communities':'Communautés','Groups':'Groupes','Open':'Ouvrir','Join':'Rejoindre','Manage':'Gérer','➕ Create New Group':'➕ Créer un groupe','Account Settings':'Paramètres du compte','Privacy & Safety':'Confidentialité et sécurité','Chat Settings':'Paramètres du chat','Notifications':'Notifications','Appearance':'Apparence','📊 Your Statistics':'📊 Vos statistiques','🌐 Language':'🌐 Langue','Email':'E-mail','Change Username':'Changer le nom','Update Username':'Mettre à jour le nom','Delete Account':'Supprimer le compte','Switch Account':'Changer de compte','Desktop notifications':'Notifications du bureau','Message sound':'Son du message','Theme':'Thème','Dark':'Sombre','Light':'Clair','Custom Colors':'Couleurs personnalisées','Compact mode':'Mode compact','Reset Statistics':'Réinitialiser les statistiques','🎯 Events & Challenges':'🎯 Événements et défis','App Language':'Langue de l\'application','Choose your preferred language. UI text will update immediately.':'Choisissez votre langue. L\'interface se met à jour immédiatement.','Current:':'Actuel :','All messages':'Tous les messages','Only mentions':'Mentions uniquement','Nothing':'Rien','Default Microphone':'Micro par défaut','Default Speaker':'Haut-parleur par défaut','Off':'Désactivé','30 seconds':'30 secondes','1 minute':'1 minute','5 minutes':'5 minutes','1 hour':'1 heure','Small':'Petit','Medium':'Moyen','Large':'Grand' },
+    de: { 'Login':'Anmelden','Register':'Registrieren','Create Account':'Konto erstellen','Already have an account?':'Hast du bereits ein Konto?','Don\'t have an account?':'Noch kein Konto?','Forgot password?':'Passwort vergessen?','Reset Password':'Passwort zurücksetzen','🪪 Account':'🪪 Konto','🛡️ Privacy':'🛡️ Datenschutz','🗨️ Chat':'🗨️ Chat','📬 Notifications':'📬 Benachrichtigungen','🪄 Appearance':'🪄 Darstellung','🧭 Language':'🧭 Sprache','📈 Statistics':'📈 Statistiken','⚙️ Settings':'⚙️ Einstellungen','Message...':'Nachricht...','Send':'Senden','Close':'Schließen','Communities':'Communitys','Groups':'Gruppen','Open':'Öffnen','Join':'Beitreten','Manage':'Verwalten','➕ Create New Group':'➕ Neue Gruppe erstellen','Account Settings':'Kontoeinstellungen','Privacy & Safety':'Datenschutz und Sicherheit','Chat Settings':'Chat-Einstellungen','Notifications':'Benachrichtigungen','Appearance':'Darstellung','📊 Your Statistics':'📊 Deine Statistiken','🌐 Language':'🌐 Sprache','Email':'E-Mail','Change Username':'Benutzernamen ändern','Update Username':'Namen aktualisieren','Delete Account':'Konto löschen','Switch Account':'Konto wechseln','Desktop notifications':'Desktop-Benachrichtigungen','Message sound':'Nachrichtenton','Theme':'Thema','Dark':'Dunkel','Light':'Hell','Custom Colors':'Eigene Farben','Compact mode':'Kompaktmodus','Reset Statistics':'Statistiken zurücksetzen','🎯 Events & Challenges':'🎯 Events und Challenges','App Language':'App-Sprache','Choose your preferred language. UI text will update immediately.':'Wähle deine Sprache. Die Oberfläche wird sofort aktualisiert.','Current:':'Aktuell:','All messages':'Alle Nachrichten','Only mentions':'Nur Erwähnungen','Nothing':'Nichts','Default Microphone':'Standardmikrofon','Default Speaker':'Standardlautsprecher','Off':'Aus','30 seconds':'30 Sekunden','1 minute':'1 Minute','5 minutes':'5 Minuten','1 hour':'1 Stunde','Small':'Klein','Medium':'Mittel','Large':'Groß' },
+    ja: { 'Login':'ログイン','Register':'登録','Create Account':'アカウント作成','Already have an account?':'すでにアカウントがありますか？','Don\'t have an account?':'アカウントをお持ちではありませんか？','Forgot password?':'パスワードを忘れましたか？','Reset Password':'パスワードをリセット','🪪 Account':'🪪 アカウント','🛡️ Privacy':'🛡️ プライバシー','🗨️ Chat':'🗨️ チャット','📬 Notifications':'📬 通知','🪄 Appearance':'🪄 外観','🧭 Language':'🧭 言語','📈 Statistics':'📈 統計','⚙️ Settings':'⚙️ 設定','Message...':'メッセージ...','Send':'送信','Close':'閉じる','Communities':'コミュニティ','Groups':'グループ','Open':'開く','Join':'参加','Manage':'管理','➕ Create New Group':'➕ 新しいグループを作成','Account Settings':'アカウント設定','Privacy & Safety':'プライバシーと安全','Chat Settings':'チャット設定','Notifications':'通知','Appearance':'外観','📊 Your Statistics':'📊 あなたの統計','🌐 Language':'🌐 言語','Email':'メール','Change Username':'ユーザー名を変更','Update Username':'ユーザー名を更新','Delete Account':'アカウント削除','Switch Account':'アカウント切替','Desktop notifications':'デスクトップ通知','Message sound':'メッセージ音','Theme':'テーマ','Dark':'ダーク','Light':'ライト','Custom Colors':'カスタムカラー','Compact mode':'コンパクトモード','Reset Statistics':'統計をリセット','🎯 Events & Challenges':'🎯 イベントとチャレンジ','App Language':'アプリ言語','Choose your preferred language. UI text will update immediately.':'言語を選択すると、UIがすぐに更新されます。','Current:':'現在:','All messages':'すべてのメッセージ','Only mentions':'メンションのみ','Nothing':'なし','Default Microphone':'既定のマイク','Default Speaker':'既定のスピーカー','Off':'オフ','30 seconds':'30秒','1 minute':'1分','5 minutes':'5分','1 hour':'1時間','Small':'小','Medium':'中','Large':'大' },
+    pt: { 'Login':'Entrar','Register':'Registrar','Create Account':'Criar conta','Already have an account?':'Já tem uma conta?','Don\'t have an account?':'Não tem uma conta?','Forgot password?':'Esqueceu a senha?','Reset Password':'Redefinir senha','🪪 Account':'🪪 Conta','🛡️ Privacy':'🛡️ Privacidade','🗨️ Chat':'🗨️ Chat','📬 Notifications':'📬 Notificações','🪄 Appearance':'🪄 Aparência','🧭 Language':'🧭 Idioma','📈 Statistics':'📈 Estatísticas','⚙️ Settings':'⚙️ Configurações','Message...':'Mensagem...','Send':'Enviar','Close':'Fechar','Communities':'Comunidades','Groups':'Grupos','Open':'Abrir','Join':'Entrar','Manage':'Gerenciar','➕ Create New Group':'➕ Criar novo grupo','Account Settings':'Configurações da conta','Privacy & Safety':'Privacidade e segurança','Chat Settings':'Configurações do chat','Notifications':'Notificações','Appearance':'Aparência','📊 Your Statistics':'📊 Suas estatísticas','🌐 Language':'🌐 Idioma','Email':'E-mail','Change Username':'Alterar nome','Update Username':'Atualizar nome','Delete Account':'Excluir conta','Switch Account':'Trocar conta','Desktop notifications':'Notificações da área de trabalho','Message sound':'Som da mensagem','Theme':'Tema','Dark':'Escuro','Light':'Claro','Custom Colors':'Cores personalizadas','Compact mode':'Modo compacto','Reset Statistics':'Redefinir estatísticas','🎯 Events & Challenges':'🎯 Eventos e desafios','App Language':'Idioma do app','Choose your preferred language. UI text will update immediately.':'Escolha seu idioma. A interface muda imediatamente.','Current:':'Atual:','All messages':'Todas as mensagens','Only mentions':'Só menções','Nothing':'Nada','Default Microphone':'Microfone padrão','Default Speaker':'Alto-falante padrão','Off':'Desligado','30 seconds':'30 segundos','1 minute':'1 minuto','5 minutes':'5 minutos','1 hour':'1 hora','Small':'Pequeno','Medium':'Médio','Large':'Grande' },
+    ar: { 'Login':'دخول','Register':'تسجيل','Create Account':'إنشاء حساب','Already have an account?':'هل لديك حساب بالفعل؟','Don\'t have an account?':'ليس لديك حساب؟','Forgot password?':'هل نسيت كلمة المرور؟','Reset Password':'إعادة تعيين كلمة المرور','🪪 Account':'🪪 الحساب','🛡️ Privacy':'🛡️ الخصوصية','🗨️ Chat':'🗨️ الدردشة','📬 Notifications':'📬 الإشعارات','🪄 Appearance':'🪄 المظهر','🧭 Language':'🧭 اللغة','📈 Statistics':'📈 الإحصائيات','⚙️ Settings':'⚙️ الإعدادات','Message...':'رسالة...','Send':'إرسال','Close':'إغلاق','Communities':'المجتمعات','Groups':'المجموعات','Open':'فتح','Join':'انضمام','Manage':'إدارة','➕ Create New Group':'➕ إنشاء مجموعة','Account Settings':'إعدادات الحساب','Privacy & Safety':'الخصوصية والأمان','Chat Settings':'إعدادات الدردشة','Notifications':'الإشعارات','Appearance':'المظهر','📊 Your Statistics':'📊 إحصاءاتك','🌐 Language':'🌐 اللغة','Email':'البريد الإلكتروني','Change Username':'تغيير الاسم','Update Username':'تحديث الاسم','Delete Account':'حذف الحساب','Switch Account':'تبديل الحساب','Desktop notifications':'إشعارات سطح المكتب','Message sound':'صوت الرسالة','Theme':'السمة','Dark':'داكن','Light':'فاتح','Custom Colors':'ألوان مخصصة','Compact mode':'الوضع المضغوط','Reset Statistics':'إعادة تعيين الإحصائيات','🎯 Events & Challenges':'🎯 الفعاليات والتحديات','App Language':'لغة التطبيق','Choose your preferred language. UI text will update immediately.':'اختر لغتك المفضلة. سيتم تحديث الواجهة فوراً.','Current:':'الحالي:','All messages':'كل الرسائل','Only mentions':'الإشارات فقط','Nothing':'لا شيء','Default Microphone':'الميكروفون الافتراضي','Default Speaker':'مكبر الصوت الافتراضي','Off':'إيقاف','30 seconds':'30 ثانية','1 minute':'دقيقة واحدة','5 minutes':'5 دقائق','1 hour':'ساعة واحدة','Small':'صغير','Medium':'متوسط','Large':'كبير' },
+    zh: { 'Login':'登录','Register':'注册','Create Account':'创建账户','Already have an account?':'已经有账户了？','Don\'t have an account?':'还没有账户？','Forgot password?':'忘记密码？','Reset Password':'重置密码','🪪 Account':'🪪 账户','🛡️ Privacy':'🛡️ 隐私','🗨️ Chat':'🗨️ 聊天','📬 Notifications':'📬 通知','🪄 Appearance':'🪄 外观','🧭 Language':'🧭 语言','📈 Statistics':'📈 统计','⚙️ Settings':'⚙️ 设置','Message...':'消息...','Send':'发送','Close':'关闭','Communities':'社区','Groups':'群组','Open':'打开','Join':'加入','Manage':'管理','➕ Create New Group':'➕ 创建新群组','Account Settings':'账户设置','Privacy & Safety':'隐私与安全','Chat Settings':'聊天设置','Notifications':'通知','Appearance':'外观','📊 Your Statistics':'📊 你的统计','🌐 Language':'🌐 语言','Email':'邮箱','Change Username':'修改用户名','Update Username':'更新用户名','Delete Account':'删除账户','Switch Account':'切换账户','Desktop notifications':'桌面通知','Message sound':'消息提示音','Theme':'主题','Dark':'深色','Light':'浅色','Custom Colors':'自定义颜色','Compact mode':'紧凑模式','Reset Statistics':'重置统计','🎯 Events & Challenges':'🎯 活动与挑战','App Language':'应用语言','Choose your preferred language. UI text will update immediately.':'选择你的语言，界面会立即更新。','Current:':'当前:','All messages':'所有消息','Only mentions':'仅提及','Nothing':'无','Default Microphone':'默认麦克风','Default Speaker':'默认扬声器','Off':'关闭','30 seconds':'30秒','1 minute':'1分钟','5 minutes':'5分钟','1 hour':'1小时','Small':'小','Medium':'中','Large':'大' },
+    ru: { 'Login':'Войти','Register':'Регистрация','Create Account':'Создать аккаунт','Already have an account?':'Уже есть аккаунт?','Don\'t have an account?':'Нет аккаунта?','Forgot password?':'Забыли пароль?','Reset Password':'Сбросить пароль','🪪 Account':'🪪 Аккаунт','🛡️ Privacy':'🛡️ Конфиденциальность','🗨️ Chat':'🗨️ Чат','📬 Notifications':'📬 Уведомления','🪄 Appearance':'🪄 Внешний вид','🧭 Language':'🧭 Язык','📈 Statistics':'📈 Статистика','⚙️ Settings':'⚙️ Настройки','Message...':'Сообщение...','Send':'Отправить','Close':'Закрыть','Communities':'Сообщества','Groups':'Группы','Open':'Открыть','Join':'Вступить','Manage':'Управлять','➕ Create New Group':'➕ Создать группу','Account Settings':'Настройки аккаунта','Privacy & Safety':'Конфиденциальность и безопасность','Chat Settings':'Настройки чата','Notifications':'Уведомления','Appearance':'Внешний вид','📊 Your Statistics':'📊 Ваша статистика','🌐 Language':'🌐 Язык','Email':'Эл. почта','Change Username':'Изменить имя','Update Username':'Обновить имя','Delete Account':'Удалить аккаунт','Switch Account':'Сменить аккаунт','Desktop notifications':'Уведомления на рабочем столе','Message sound':'Звук сообщения','Theme':'Тема','Dark':'Тёмная','Light':'Светлая','Custom Colors':'Свои цвета','Compact mode':'Компактный режим','Reset Statistics':'Сбросить статистику','🎯 Events & Challenges':'🎯 События и испытания','App Language':'Язык приложения','Choose your preferred language. UI text will update immediately.':'Выберите язык. Интерфейс обновится сразу.','Current:':'Текущий:','All messages':'Все сообщения','Only mentions':'Только упоминания','Nothing':'Ничего','Default Microphone':'Микрофон по умолчанию','Default Speaker':'Динамик по умолчанию','Off':'Выкл','30 seconds':'30 секунд','1 minute':'1 минута','5 minutes':'5 минут','1 hour':'1 час','Small':'Маленький','Medium':'Средний','Large':'Большой' },
+    ko: { 'Login':'로그인','Register':'회원가입','Create Account':'계정 만들기','Already have an account?':'이미 계정이 있나요?','Don\'t have an account?':'계정이 없나요?','Forgot password?':'비밀번호를 잊으셨나요?','Reset Password':'비밀번호 재설정','🪪 Account':'🪪 계정','🛡️ Privacy':'🛡️ 개인정보','🗨️ Chat':'🗨️ 채팅','📬 Notifications':'📬 알림','🪄 Appearance':'🪄 화면','🧭 Language':'🧭 언어','📈 Statistics':'📈 통계','⚙️ Settings':'⚙️ 설정','Message...':'메시지...','Send':'보내기','Close':'닫기','Communities':'커뮤니티','Groups':'그룹','Open':'열기','Join':'참여','Manage':'관리','➕ Create New Group':'➕ 새 그룹 만들기','Account Settings':'계정 설정','Privacy & Safety':'개인정보 및 보안','Chat Settings':'채팅 설정','Notifications':'알림','Appearance':'화면','📊 Your Statistics':'📊 내 통계','🌐 Language':'🌐 언어','Email':'이메일','Change Username':'이름 변경','Update Username':'이름 업데이트','Delete Account':'계정 삭제','Switch Account':'계정 전환','Desktop notifications':'데스크톱 알림','Message sound':'메시지 소리','Theme':'테마','Dark':'다크','Light':'라이트','Custom Colors':'사용자 색상','Compact mode':'컴팩트 모드','Reset Statistics':'통계 초기화','🎯 Events & Challenges':'🎯 이벤트 및 챌린지','App Language':'앱 언어','Choose your preferred language. UI text will update immediately.':'원하는 언어를 선택하면 UI가 즉시 바뀝니다.','Current:':'현재:','All messages':'모든 메시지','Only mentions':'멘션만','Nothing':'없음','Default Microphone':'기본 마이크','Default Speaker':'기본 스피커','Off':'끔','30 seconds':'30초','1 minute':'1분','5 minutes':'5분','1 hour':'1시간','Small':'작게','Medium':'보통','Large':'크게' },
+    tr: { 'Login':'Giriş','Register':'Kayıt Ol','Create Account':'Hesap oluştur','Already have an account?':'Zaten hesabın var mı?','Don\'t have an account?':'Hesabın yok mu?','Forgot password?':'Şifreni mi unuttun?','Reset Password':'Şifreyi sıfırla','🪪 Account':'🪪 Hesap','🛡️ Privacy':'🛡️ Gizlilik','🗨️ Chat':'🗨️ Sohbet','📬 Notifications':'📬 Bildirimler','🪄 Appearance':'🪄 Görünüm','🧭 Language':'🧭 Dil','📈 Statistics':'📈 İstatistikler','⚙️ Settings':'⚙️ Ayarlar','Message...':'Mesaj...','Send':'Gönder','Close':'Kapat','Communities':'Topluluklar','Groups':'Gruplar','Open':'Aç','Join':'Katıl','Manage':'Yönet','➕ Create New Group':'➕ Yeni grup oluştur','Account Settings':'Hesap ayarları','Privacy & Safety':'Gizlilik ve güvenlik','Chat Settings':'Sohbet ayarları','Notifications':'Bildirimler','Appearance':'Görünüm','📊 Your Statistics':'📊 İstatistiklerin','🌐 Language':'🌐 Dil','Email':'E-posta','Change Username':'Kullanıcı adını değiştir','Update Username':'Adı güncelle','Delete Account':'Hesabı sil','Switch Account':'Hesap değiştir','Desktop notifications':'Masaüstü bildirimleri','Message sound':'Mesaj sesi','Theme':'Tema','Dark':'Koyu','Light':'Açık','Custom Colors':'Özel renkler','Compact mode':'Kompakt mod','Reset Statistics':'İstatistikleri sıfırla','🎯 Events & Challenges':'🎯 Etkinlikler ve görevler','App Language':'Uygulama dili','Choose your preferred language. UI text will update immediately.':'Tercih ettiğin dili seç. Arayüz hemen güncellenir.','Current:':'Geçerli:','All messages':'Tüm mesajlar','Only mentions':'Sadece bahsetmeler','Nothing':'Hiçbiri','Default Microphone':'Varsayılan mikrofon','Default Speaker':'Varsayılan hoparlör','Off':'Kapalı','30 seconds':'30 saniye','1 minute':'1 dakika','5 minutes':'5 dakika','1 hour':'1 saat','Small':'Küçük','Medium':'Orta','Large':'Büyük' },
+    it: { 'Login':'Accedi','Register':'Registrati','Create Account':'Crea account','Already have an account?':'Hai già un account?','Don\'t have an account?':'Non hai un account?','Forgot password?':'Password dimenticata?','Reset Password':'Reimposta password','🪪 Account':'🪪 Account','🛡️ Privacy':'🛡️ Privacy','🗨️ Chat':'🗨️ Chat','📬 Notifications':'📬 Notifiche','🪄 Appearance':'🪄 Aspetto','🧭 Language':'🧭 Lingua','📈 Statistics':'📈 Statistiche','⚙️ Settings':'⚙️ Impostazioni','Message...':'Messaggio...','Send':'Invia','Close':'Chiudi','Communities':'Comunità','Groups':'Gruppi','Open':'Apri','Join':'Unisciti','Manage':'Gestisci','➕ Create New Group':'➕ Crea nuovo gruppo','Account Settings':'Impostazioni account','Privacy & Safety':'Privacy e sicurezza','Chat Settings':'Impostazioni chat','Notifications':'Notifiche','Appearance':'Aspetto','📊 Your Statistics':'📊 Le tue statistiche','🌐 Language':'🌐 Lingua','Email':'Email','Change Username':'Cambia nome utente','Update Username':'Aggiorna nome utente','Delete Account':'Elimina account','Switch Account':'Cambia account','Desktop notifications':'Notifiche desktop','Message sound':'Suono messaggio','Theme':'Tema','Dark':'Scuro','Light':'Chiaro','Custom Colors':'Colori personalizzati','Compact mode':'Modalità compatta','Reset Statistics':'Reimposta statistiche','🎯 Events & Challenges':'🎯 Eventi e sfide','App Language':'Lingua app','Choose your preferred language. UI text will update immediately.':'Scegli la lingua preferita. L\'interfaccia si aggiorna subito.','Current:':'Attuale:','All messages':'Tutti i messaggi','Only mentions':'Solo menzioni','Nothing':'Niente','Default Microphone':'Microfono predefinito','Default Speaker':'Altoparlante predefinito','Off':'Disattivato','30 seconds':'30 secondi','1 minute':'1 minuto','5 minutes':'5 minuti','1 hour':'1 ora','Small':'Piccolo','Medium':'Medio','Large':'Grande' }
+};
+const FIRETECH_BOT_USER = {
+    userId: 'bot_firetech_0',
+    id: 'bot_firetech_0',
+    username: '⚡ FireTech Bot',
+    role: 'Security Assistant',
+    isBot: true,
+    avatar: null
+};
+const FIRETECH_SECURITY_QUOTE = 'Secure your conversations. Trust the fire.';
+const preferredLanguage = localStorage.getItem('appLanguage') || 'en';
+let currentLanguage = 'en';
+
+function getUiDictionary(code) {
+    return UI_TRANSLATIONS[code] || UI_TRANSLATIONS.en;
+}
+
+const reverseUiDictionaryCache = {};
+function getReverseUiDictionary(code) {
+    if (!code || code === 'en') return {};
+    if (reverseUiDictionaryCache[code]) return reverseUiDictionaryCache[code];
+
+    const dict = getUiDictionary(code);
+    const reverse = {};
+    Object.entries(dict).forEach(([english, translated]) => {
+        const key = String(translated || '').trim().toLowerCase();
+        if (!key) return;
+        if (!reverse[key]) reverse[key] = english;
+    });
+    reverseUiDictionaryCache[code] = reverse;
+    return reverse;
+}
+
+function getSourceSeedText(rawText, langCode) {
+    const raw = String(rawText || '');
+    const trimmed = raw.trim();
+    if (!trimmed || !langCode || langCode === 'en') return raw;
+
+    const reverse = getReverseUiDictionary(langCode);
+    const direct = reverse[trimmed.toLowerCase()];
+    if (direct) return direct;
+
+    const emojiSplit = splitLeadingEmojiPrefix(trimmed);
+    const rest = String(emojiSplit.rest || '').trim();
+    const mappedRest = reverse[rest.toLowerCase()];
+    if (mappedRest) return `${emojiSplit.prefix}${mappedRest}`;
+
+    return raw;
+}
+
+const AUTO_TRANSLATION_CACHE_KEY = 'autoTranslationCache_v1';
+let autoTranslationCache = {};
+const i18nTextNodeSource = new WeakMap();
+try {
+    autoTranslationCache = JSON.parse(localStorage.getItem(AUTO_TRANSLATION_CACHE_KEY) || '{}');
+} catch (_) {
+    autoTranslationCache = {};
+}
+const autoTranslationInFlight = new Map();
+const AUTO_TRANSLATION_ENABLED = localStorage.getItem('autoTranslateEnabled') !== 'false';
+const AUTO_TRANSLATION_MIN_INTERVAL_MS = 350;
+const AUTO_TRANSLATION_RATE_LIMIT_COOLDOWN_MS = 10 * 60 * 1000;
+const AUTO_TRANSLATION_FAILURE_COOLDOWN_MS = 30 * 60 * 1000;
+const AUTO_TRANSLATION_MAX_REQUESTS_PER_PAGE = 120;
+let autoTranslationLastRequestAt = 0;
+let autoTranslationRateLimitedUntil = 0;
+const autoTranslationFailureUntil = new Map();
+let autoTranslationRequestCount = 0;
+
+function getAutoTranslationCacheKey(text, langCode) {
+    return `${langCode}::${String(text || '').trim()}`;
+}
+
+function getCachedAutoTranslation(text, langCode) {
+    return autoTranslationCache[getAutoTranslationCacheKey(text, langCode)] || null;
+}
+
+function setCachedAutoTranslation(text, langCode, translated) {
+    autoTranslationCache[getAutoTranslationCacheKey(text, langCode)] = translated;
+    try {
+        localStorage.setItem(AUTO_TRANSLATION_CACHE_KEY, JSON.stringify(autoTranslationCache));
+    } catch (_) {
+        
+    }
+}
+
+function shouldAutoTranslate(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return false;
+    if (text.length > 180) return false;
+    if (/^\d+[\d\s.,:/-]*$/.test(text)) return false;
+    if (/^[^\p{L}]+$/u.test(text)) return false;
+    return true;
+}
+
+async function fetchAutoTranslation(text, langCode) {
+    if (!AUTO_TRANSLATION_ENABLED) return null;
+
+    const key = getAutoTranslationCacheKey(text, langCode);
+    if (autoTranslationInFlight.has(key)) return autoTranslationInFlight.get(key);
+
+    const now = Date.now();
+    const blockedUntil = autoTranslationFailureUntil.get(key) || 0;
+    if (blockedUntil > now) return null;
+    if (autoTranslationRateLimitedUntil > now) return null;
+    if (autoTranslationRequestCount >= AUTO_TRANSLATION_MAX_REQUESTS_PER_PAGE) return null;
+
+    const request = (async () => {
+        try {
+            autoTranslationRequestCount += 1;
+            const waitMs = Math.max(0, AUTO_TRANSLATION_MIN_INTERVAL_MS - (Date.now() - autoTranslationLastRequestAt));
+            if (waitMs > 0) {
+                await new Promise((resolve) => setTimeout(resolve, waitMs));
+            }
+            autoTranslationLastRequestAt = Date.now();
+
+            const source = encodeURIComponent(String(text));
+            const pair = encodeURIComponent(`en|${langCode}`);
+            const response = await fetch(`https://api.mymemory.translated.net/get?q=${source}&langpair=${pair}`);
+
+            if (response.status === 429) {
+                autoTranslationRateLimitedUntil = Date.now() + AUTO_TRANSLATION_RATE_LIMIT_COOLDOWN_MS;
+                autoTranslationFailureUntil.set(key, Date.now() + AUTO_TRANSLATION_FAILURE_COOLDOWN_MS);
+                return null;
+            }
+
+            if (!response.ok) return null;
+            const data = await response.json();
+            const translated = String(data?.responseData?.translatedText || '').trim();
+            if (!translated || translated.toLowerCase() === String(text).trim().toLowerCase()) return null;
+            setCachedAutoTranslation(text, langCode, translated);
+            autoTranslationFailureUntil.delete(key);
+            return translated;
+        } catch (_) {
+            autoTranslationFailureUntil.set(key, Date.now() + AUTO_TRANSLATION_FAILURE_COOLDOWN_MS);
+            return null;
+        } finally {
+            autoTranslationInFlight.delete(key);
+        }
+    })();
+
+    autoTranslationInFlight.set(key, request);
+    return request;
+}
+
+function applyAutoTranslateToElement(element, attr, originalText, langCode, dict) {
+    if (!AUTO_TRANSLATION_ENABLED) return;
+    if (langCode === 'en') return;
+    const mapped = dict[String(originalText || '').trim()];
+    if (mapped) return;
+    if (!shouldAutoTranslate(originalText)) return;
+
+    const cached = getCachedAutoTranslation(originalText, langCode);
+    if (cached) {
+        if (attr === 'text') {
+            if (element.textContent !== cached) element.textContent = cached;
+        } else if (element.getAttribute(attr) !== cached) {
+            element.setAttribute(attr, cached);
+        }
+        return;
+    }
+
+    fetchAutoTranslation(originalText, langCode).then((translated) => {
+        if (!translated) return;
+        if (langCode !== currentLanguage) return;
+        if (attr === 'text') {
+            if (element.textContent !== translated) element.textContent = translated;
+        } else if (element.getAttribute(attr) !== translated) {
+            element.setAttribute(attr, translated);
+        }
+    });
+}
+
+let isApplyingLocalization = false;
+
+function splitLeadingEmojiPrefix(value) {
+    const raw = String(value || '');
+    const match = raw.match(/^([\p{Emoji}\p{Emoji_Component}\uFE0F\s]+)([\s\S]+)$/u);
+    if (!match) {
+        return { prefix: '', rest: raw };
+    }
+    return {
+        prefix: match[1] || '',
+        rest: match[2] || ''
+    };
+}
+
+function translateRawText(value, dict) {
+    const raw = String(value || '');
+    const trimmed = raw.trim();
+    if (!trimmed) return value;
+
+    if (dict[trimmed]) return dict[trimmed];
+
+    const directCaseInsensitiveKey = Object.keys(dict).find((key) => key.toLowerCase() === trimmed.toLowerCase());
+    if (directCaseInsensitiveKey) return dict[directCaseInsensitiveKey];
+
+    const emojiSplit = splitLeadingEmojiPrefix(trimmed);
+    const rest = String(emojiSplit.rest || '').trim();
+    if (rest) {
+        if (dict[rest]) return `${emojiSplit.prefix}${dict[rest]}`;
+        const restCaseInsensitiveKey = Object.keys(dict).find((key) => key.toLowerCase() === rest.toLowerCase());
+        if (restCaseInsensitiveKey) return `${emojiSplit.prefix}${dict[restCaseInsensitiveKey]}`;
+    }
+
+    return value;
+}
+
+function resolveLocalizedValue(originalText, dict, langCode) {
+    const original = String(originalText || '');
+    const dictTranslated = translateRawText(original, dict);
+    if (dictTranslated !== original) {
+        return { value: dictTranslated, shouldFetch: false };
+    }
+
+    if (AUTO_TRANSLATION_ENABLED && langCode !== 'en' && shouldAutoTranslate(original)) {
+        const cached = getCachedAutoTranslation(original, langCode);
+        if (cached) {
+            return { value: cached, shouldFetch: false };
+        }
+        return { value: original, shouldFetch: true };
+    }
+
+    return { value: original, shouldFetch: false };
+}
+
+function localizeContainer(container, dict) {
+    if (!container) return;
+    const langCode = currentLanguage;
+    container.querySelectorAll('*').forEach((element) => {
+        if (['SCRIPT', 'STYLE'].includes(element.tagName)) return;
+
+        if (element.childNodes.length > 0) {
+            element.childNodes.forEach((node) => {
+                if (node.nodeType !== Node.TEXT_NODE) return;
+
+                const rawCurrent = String(node.textContent || '');
+                if (!rawCurrent.trim()) return;
+
+                if (!i18nTextNodeSource.has(node)) {
+                    i18nTextNodeSource.set(node, getSourceSeedText(rawCurrent, langCode));
+                }
+
+                const sourceText = String(i18nTextNodeSource.get(node) || '');
+                const match = sourceText.match(/^(\s*)([\s\S]*?)(\s*)$/);
+                const leading = match ? match[1] : '';
+                const core = (match ? match[2] : sourceText).trim();
+                const trailing = match ? match[3] : '';
+                if (!core) return;
+
+                const resolved = resolveLocalizedValue(core, dict, langCode);
+                const nextText = `${leading}${resolved.value}${trailing}`;
+                if (node.textContent !== nextText) {
+                    node.textContent = nextText;
+                }
+
+                if (resolved.shouldFetch) {
+                    fetchAutoTranslation(core, langCode).then((translated) => {
+                        if (!translated) return;
+                        if (langCode !== currentLanguage) return;
+                        if (!node.isConnected) return;
+                        const translatedText = `${leading}${translated}${trailing}`;
+                        if (node.textContent !== translatedText) {
+                            node.textContent = translatedText;
+                        }
+                    });
+                }
+            });
+        }
+
+        if (element.matches('input[placeholder], textarea[placeholder]')) {
+            if (!element.dataset.i18nPlaceholder) {
+                element.dataset.i18nPlaceholder = getSourceSeedText(element.getAttribute('placeholder') || '', langCode);
+            }
+            const resolvedPlaceholder = resolveLocalizedValue(element.dataset.i18nPlaceholder, dict, langCode);
+            if (element.getAttribute('placeholder') !== resolvedPlaceholder.value) {
+                element.setAttribute('placeholder', resolvedPlaceholder.value);
+            }
+            if (resolvedPlaceholder.shouldFetch) {
+                applyAutoTranslateToElement(element, 'placeholder', element.dataset.i18nPlaceholder, langCode, dict);
+            }
+        }
+
+        if (element.tagName === 'OPTION') {
+            if (!element.dataset.i18nText) element.dataset.i18nText = getSourceSeedText(element.textContent.trim(), langCode);
+            const resolvedOption = resolveLocalizedValue(element.dataset.i18nText, dict, langCode);
+            if (element.textContent !== resolvedOption.value) {
+                element.textContent = resolvedOption.value;
+            }
+            if (resolvedOption.shouldFetch) {
+                applyAutoTranslateToElement(element, 'text', element.dataset.i18nText, langCode, dict);
+            }
+        }
+
+        if (element.hasAttribute('title')) {
+            if (!element.dataset.i18nTitle) {
+                element.dataset.i18nTitle = getSourceSeedText(element.getAttribute('title') || '', langCode);
+            }
+            const resolvedTitle = resolveLocalizedValue(element.dataset.i18nTitle, dict, langCode);
+            if (element.getAttribute('title') !== resolvedTitle.value) {
+                element.setAttribute('title', resolvedTitle.value);
+            }
+            if (resolvedTitle.shouldFetch) {
+                applyAutoTranslateToElement(element, 'title', element.dataset.i18nTitle, langCode, dict);
+            }
+        }
+
+        if (element.children.length === 0) {
+            const raw = element.textContent.trim();
+            if (!raw) return;
+            if (!element.dataset.i18nText) element.dataset.i18nText = getSourceSeedText(raw, langCode);
+            const resolvedText = resolveLocalizedValue(element.dataset.i18nText, dict, langCode);
+            if (element.textContent !== resolvedText.value) {
+                element.textContent = resolvedText.value;
+            }
+            if (resolvedText.shouldFetch) {
+                applyAutoTranslateToElement(element, 'text', element.dataset.i18nText, langCode, dict);
+            }
+        }
+    });
+}
+
+function localizeStaticUi(code) {
+    const dict = getUiDictionary(code);
+    if (isApplyingLocalization) return;
+    isApplyingLocalization = true;
+    try {
+        localizeContainer(document.body, dict);
+        document.body.dir = code === 'ar' ? 'rtl' : 'ltr';
+    } finally {
+        isApplyingLocalization = false;
+    }
+}
+
+function syncAuthLanguage() {
+    const dict = getUiDictionary(currentLanguage);
+    const usernameFields = document.getElementById('registerFields');
+    const authTitle = document.getElementById('authTitle');
+    const authButton = document.getElementById('authButton');
+    const authToggle = document.querySelector('.auth-toggle span');
+    if (usernameFields) usernameFields.style.display = isRegistering ? 'block' : 'none';
+    if (authTitle) authTitle.textContent = isRegistering ? translateRawText('Register', dict) : translateRawText('Login', dict);
+    if (authButton) authButton.textContent = isRegistering ? translateRawText('Create Account', dict) : translateRawText('Login', dict);
+    if (authToggle) {
+        const lead = isRegistering ? translateRawText('Already have an account?', dict) : translateRawText("Don't have an account?", dict);
+        const cta = isRegistering ? translateRawText('Login', dict) : translateRawText('Register', dict);
+        authToggle.innerHTML = `${lead} <button type="button">${cta}</button>`;
+        const button = authToggle.querySelector('button');
+        if (button) button.onclick = toggleAuthMode;
+    }
+}
+
+function parseFlexibleNumber(value) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
+    if (value === null || value === undefined) return NaN;
+    const cleaned = String(value).replace(/[^\d.-]/g, '');
+    if (!cleaned || cleaned === '-' || cleaned === '.' || cleaned === '-.') return NaN;
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function decodeJwtPayload(token) {
+    try {
+        if (!token || typeof token !== 'string') return null;
+        const parts = token.split('.');
+        if (parts.length < 2) return null;
+        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - (base64.length % 4 || 4)) % 4);
+        const json = atob(padded);
+        const payload = JSON.parse(json);
+        return payload && typeof payload === 'object' ? payload : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function resolveCurrentUserId() {
+    if (currentUser?.id) return String(currentUser.id);
+
+    try {
+        const stored = JSON.parse(localStorage.getItem('user') || '{}');
+        if (stored?.id) {
+            currentUser = { ...(currentUser || {}), ...stored, id: stored.id };
+            return String(stored.id);
+        }
+    } catch (_) {
+        
+    }
+
+    const payload = decodeJwtPayload(currentToken || localStorage.getItem('token'));
+    if (payload?.userId) {
+        currentUser = { ...(currentUser || {}), id: payload.userId };
+        return String(payload.userId);
+    }
+
+    return null;
+}
+
+function getCurrentCoinBalance() {
+    const candidates = [
+        currentUser?.coins,
+        (() => {
+            try {
+                const stored = JSON.parse(localStorage.getItem('user') || '{}');
+                return stored?.coins;
+            } catch (_) {
+                return undefined;
+            }
+        })(),
+        document.getElementById('coinsDisplay')?.textContent || ''
+    ];
+
+    for (const value of candidates) {
+        const parsed = parseFlexibleNumber(value);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return NaN;
+}
+
+function clampPickerScale(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 1.45;
+    return Math.min(2, Math.max(1, numeric));
+}
+
+function updatePickerScaleLabel() {
+    const label = document.getElementById('pickerSizeLabel');
+    if (label) label.textContent = `${Math.round(pickerScale * 100)}%`;
+    const slider = document.getElementById('pickerSizeRange');
+    if (slider) slider.value = String(pickerScale);
+}
+
+function applyPickerScale() {
+    const panel = document.getElementById('pickerPanel');
+    if (!panel) return;
+    panel.style.setProperty('--picker-scale', String(pickerScale));
+    updatePickerScaleLabel();
+}
+
+function setPickerScale(value) {
+    pickerScale = clampPickerScale(value);
+    localStorage.setItem('pickerScale', String(pickerScale));
+    applyPickerScale();
+}
+
+function adjustPickerSize(delta) {
+    setPickerScale(pickerScale + Number(delta || 0));
+}
+
+async function syncCurrentUserCoinsFromProfile() {
+    if (!currentToken) return null;
+
+    const userId = resolveCurrentUserId();
+    if (!userId) return null;
+
+    try {
+        const response = await fetch(`${API_BASE}/profile/${userId}`, {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (!response.ok) return null;
+        const user = await response.json();
+        if (!user || typeof user !== 'object') return null;
+
+        currentUser = { ...currentUser, ...user };
+        localStorage.setItem('user', JSON.stringify(currentUser));
+
+        const coinsDisplay = document.getElementById('coinsDisplay');
+        if (coinsDisplay) {
+            coinsDisplay.textContent = `💰 Coins: ${user.coins || 0}`;
+        }
+
+        return parseFlexibleNumber(user.coins);
+    } catch (_) {
+        return null;
+    }
+}
+
+function updateAllCoinDisplays(coins) {
+    if (!Number.isFinite(coins)) return;
+    
+    
+    const coinsDisplay = document.getElementById('coinsDisplay');
+    if (coinsDisplay) {
+        coinsDisplay.textContent = `💰 Coins: ${coins}`;
+    }
+    
+   
+    const coinElements = document.querySelectorAll('[data-coins-display]');
+    coinElements.forEach(el => {
+        el.textContent = `💰 ${coins}`;
+    });
+}
+
+function syncProfilePanelForCurrentRoom() {
+    const panel = document.getElementById('profilePanel');
+    if (!panel) return;
+    if (!currentChatContext || (currentChatContext.type !== 'group' && currentChatContext.type !== 'community')) return;
+
+    const roomName = currentChatContext.name;
+    const profile = currentChatContext.type === 'group'
+        ? getGroupProfile(roomName)
+        : getCommunityProfile(roomName);
+
+    const profileName = document.getElementById('profileName');
+    const profileAvatar = document.getElementById('profileAvatar');
+    if (profileName) profileName.textContent = roomName;
+
+    if (!profileAvatar) return;
+    if (profile?.image) {
+        profileAvatar.style.backgroundImage = `url(${profile.image})`;
+        profileAvatar.style.backgroundSize = 'cover';
+        profileAvatar.style.backgroundPosition = 'center';
+        profileAvatar.textContent = '';
+        return;
+    }
+
+    profileAvatar.style.backgroundImage = 'none';
+    profileAvatar.style.backgroundSize = '';
+    profileAvatar.style.backgroundPosition = '';
+    profileAvatar.textContent = profile?.icon || (currentChatContext.type === 'group' ? '👥' : '🌐');
+}
+
+function refreshRoomVisuals(roomType, roomName, options = {}) {
+    const { reopenDetails = false } = options;
+    const dict = getUiDictionary(currentLanguage);
+    const groupLabel = translateRawText('Group', dict);
+    const communityLabel = translateRawText('Community', dict);
+
+    if (roomType === 'group') {
+        if (currentChatContext?.type === 'group' && currentChatContext?.name === roomName) {
+            const profile = getGroupProfile(roomName);
+            const chatTitle = document.getElementById('chatTitle');
+            if (chatTitle) chatTitle.textContent = `${profile?.image ? '🖼️' : (profile.icon || '👥')} ${groupLabel}: ${roomName}`;
+        }
+
+        if (!document.getElementById('groupsModal')?.classList.contains('hidden')) {
+            openGroupsModal();
+        }
+        
+        
+        updateAllRoomIconInstances('group', roomName);
+    } else if (roomType === 'community') {
+        if (currentChatContext?.type === 'community' && currentChatContext?.name === roomName) {
+            const profile = getCommunityProfile(roomName);
+            const chatTitle = document.getElementById('chatTitle');
+            if (chatTitle) chatTitle.textContent = `${profile?.image ? '🖼️' : (profile.icon || '🌐')} ${communityLabel}: ${roomName}`;
+        }
+
+        if (!document.getElementById('communitiesModal')?.classList.contains('hidden')) {
+            openCommunitiesModal();
+        }
+        if (reopenDetails && document.getElementById('communityDetailsModal')?.classList.contains('show')) {
+            openCommunityDetails(roomName);
+        }
+        
+        
+        updateAllRoomIconInstances('community', roomName);
+    }
+
+    syncProfilePanelForCurrentRoom();
+    loadFriendsForDM();
+}
+
+function updateAllRoomIconInstances(roomType, roomName) {
+    const profile = roomType === 'group' ? getGroupProfile(roomName) : getCommunityProfile(roomName);
+    const iconChar = profile?.image ? '🖼️' : (profile?.icon || (roomType === 'group' ? '👥' : '🌐'));
+    
+    
+    const allChannelItems = document.querySelectorAll('.channel-item');
+    allChannelItems.forEach(item => {
+        
+        const label = item.querySelector('.channel-label');
+        if (label && label.textContent === roomName) {
+            const avatar = item.querySelector('.channel-avatar');
+            if (avatar) {
+                if (profile?.image) {
+                    avatar.style.backgroundImage = `url(${profile.image})`;
+                    avatar.style.backgroundSize = 'cover';
+                    avatar.style.backgroundPosition = 'center';
+                    avatar.textContent = '';
+                } else {
+                    avatar.style.backgroundImage = 'none';
+                    avatar.textContent = iconChar;
+                }
+            }
+        }
+    });
+    
+    
+    if (roomType === 'group') {
+        const groupCards = document.querySelectorAll('.group-card');
+        groupCards.forEach(card => {
+            const nameEl = card.querySelector('.group-name');
+            if (nameEl && nameEl.textContent === roomName) {
+                const avatar = card.querySelector('.group-avatar');
+                if (avatar) {
+                    if (profile?.image) {
+                        avatar.style.backgroundImage = `url(${profile.image})`;
+                        avatar.style.backgroundSize = 'cover';
+                        avatar.style.backgroundPosition = 'center';
+                        avatar.innerHTML = '';
+                    } else {
+                        avatar.style.backgroundImage = 'none';
+                        avatar.innerHTML = `<span class="emoji-glyph">${iconChar}</span>`;
+                    }
+                }
+            }
+        });
+    }
+    
+    
+    if (roomType === 'community') {
+        const communityCards = document.querySelectorAll('.community-card');
+        communityCards.forEach(card => {
+            const nameEl = card.querySelector('.group-name');
+            if (nameEl && nameEl.textContent === roomName) {
+                const avatar = card.querySelector('.group-avatar');
+                if (avatar) {
+                    if (profile?.image) {
+                        avatar.style.backgroundImage = `url(${profile.image})`;
+                        avatar.style.backgroundSize = 'cover';
+                        avatar.style.backgroundPosition = 'center';
+                        avatar.innerHTML = '';
+                    } else {
+                        avatar.style.backgroundImage = 'none';
+                        avatar.innerHTML = `<span class="emoji-glyph">${iconChar}</span>`;
+                    }
+                }
+            }
+        });
+    }
+}
+
+function normalizePinnedChats(rawValue) {
+    const source = Array.isArray(rawValue) ? rawValue : [];
+    const normalized = [];
+
+    source.forEach((entry) => {
+        if (!entry) return;
+
+        if (typeof entry === 'string') {
+            normalized.push(entry);
+            return;
+        }
+
+        if (typeof entry === 'object') {
+            if (entry.type && (entry.id || entry.name)) {
+                normalized.push(`${entry.type}:${entry.id || entry.name}`);
+                return;
+            }
+            if (entry.id) {
+                normalized.push(`dm:${entry.id}`);
+            }
+        }
+    });
+
+    return Array.from(new Set(normalized));
+}
+
+function closeAllMessageActionRows() {
+    document.querySelectorAll('.message.message-actions-open').forEach((messageEl) => {
+        messageEl.classList.remove('message-actions-open');
+    });
+}
+
+function ensureMessageActionInteractionBinding() {
+    if (messageActionInteractionBound) return;
+    messageActionInteractionBound = true;
+
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('.message')) {
+            closeAllMessageActionRows();
+        }
+    });
+}
+
+function getVisibleMembers(users) {
+    const list = Array.isArray(users) ? users : [];
+    const withoutBot = list.filter((user) => String(user?.userId || user?.id || '') !== FIRETECH_BOT_USER.userId);
+    return [FIRETECH_BOT_USER, ...withoutBot];
+}
+
+function applyLanguage(code, silent = false) {
+    currentLanguage = code;
+    autoTranslationRequestCount = 0;
+    localStorage.setItem('appLanguage', code);
+    const t = I18N[code] || I18N.en;
+    const lang = LANGUAGES.find(l => l.code === code) || LANGUAGES[0];
+    document.documentElement.lang = code;
+    const msgInput = document.getElementById('messageInput');
+    if (msgInput) msgInput.placeholder = t.typeMsg;
+    syncAuthLanguage();
+    const langDisplay = document.getElementById('currentLangDisplay');
+    if (langDisplay) langDisplay.textContent = `${lang.flag} ${lang.name}`;
+    localizeStaticUi(code);
+
+    if (currentChatContext?.type === 'group' || currentChatContext?.type === 'community') {
+        refreshRoomVisuals(currentChatContext.type, currentChatContext.name, { reopenDetails: true });
+    }
+
+    if (!document.getElementById('shopModal')?.classList.contains('hidden')) {
+        loadShopItems();
+        loadInventory();
+    }
+
+    if (!document.getElementById('friendsModal')?.classList.contains('hidden')) {
+        loadFriends();
+    }
+
+    if (!document.getElementById('groupsModal')?.classList.contains('hidden')) {
+        openGroupsModal();
+    }
+
+    if (!document.getElementById('communitiesModal')?.classList.contains('hidden')) {
+        openCommunitiesModal();
+    }
+
+    if (document.getElementById('communityDetailsModal')?.classList.contains('show') && currentChatContext?.type === 'community') {
+        openCommunityDetails(currentChatContext.name);
+    }
+
+    if (!document.getElementById('archivedChatsModal')?.classList.contains('hidden')) {
+        showArchivedChats();
+    }
+
+    applyEnhancedEmoji(document.body);
+    renderLangGrid();
+    if (!silent) showToast(`🌐 Language set to ${lang.name}`, 'success');
+}
+
+function renderLangGrid() {
+    const grid = document.getElementById('langGrid');
+    if (!grid) return;
+    grid.innerHTML = LANGUAGES.map(l => `
+        <button class="lang-btn ${currentLanguage === l.code ? 'active' : ''}" onclick="applyLanguage('${l.code}')">
+            <span class="lang-flag" aria-hidden="true">${l.flag}</span>
+            <div>
+                <div class="lang-info-name">${l.name}</div>
+                <div class="lang-info-country">${l.country}</div>
+            </div>
+            ${currentLanguage === l.code ? '<span style="margin-left:auto;color:var(--primary-color);font-size:16px;">✓</span>' : ''}
+        </button>
+    `).join('');
+}
+
+function applyEnhancedEmoji(root = document.body) {
+    if (!root || !window.twemoji || typeof window.twemoji.parse !== 'function') return;
+    window.twemoji.parse(root, {
+        folder: 'svg',
+        ext: '.svg',
+        className: 'twemoji'
+    });
+}
+
+let localizationObserver = null;
+let localizationRefreshTimer = null;
+
+function ensureLocalizationObserver() {
+    if (localizationObserver) return;
+    localizationObserver = new MutationObserver(() => {
+        if (isApplyingLocalization) return;
+        if (localizationRefreshTimer) clearTimeout(localizationRefreshTimer);
+        localizationRefreshTimer = setTimeout(() => {
+            if (isApplyingLocalization) return;
+            localizeStaticUi(currentLanguage);
+            applyEnhancedEmoji(document.body);
+        }, 280);
+    });
+    localizationObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['title', 'placeholder']
+    });
+}
+
 let isRegistering = false;
 let currentChatFriendId = null;
 let currentChatFriendName = null;
@@ -46,6 +882,8 @@ let joinedGroups = [];
 let groupMemberRoles = JSON.parse(localStorage.getItem('groupMemberRoles') || '{}');
 let cachedShopItemsById = {};
 let equippedShopItems = JSON.parse(localStorage.getItem('equippedShopItems') || '{}');
+let baseThemePrimaryColor = localStorage.getItem('baseThemePrimaryColor') || '';
+let baseThemePrimaryHover = localStorage.getItem('baseThemePrimaryHover') || '';
 let communityProfiles = JSON.parse(localStorage.getItem('communityProfiles') || '{}');
 let groupProfiles = JSON.parse(localStorage.getItem('groupProfiles') || '{}');
 let selectedOrbEffect = localStorage.getItem('selectedOrbEffect') || 'none';
@@ -58,6 +896,8 @@ let roomRoleCache = JSON.parse(localStorage.getItem('roomRoleCache') || '{}');
 let roomProfileCache = JSON.parse(localStorage.getItem('roomProfileCache') || '{}');
 const ROOM_CACHE_MAX_PER_ROOM = 40;
 const ROOM_CACHE_MEDIA_URL_MAX_CHARS = 1400;
+let messageActionInteractionBound = false;
+let pickerScale = Number(localStorage.getItem('pickerScale') || '1.45');
 let chatSettings = {
     disappearTime: 0,
     enterToSend: true,
@@ -154,10 +994,6 @@ function getMyRoomRole(roomType, roomName) {
 }
 
 function canManageRoomAppearance(roomType, roomName) {
-    if (roomType === 'group' && joinedGroups.includes(roomName)) {
-        return true;
-    }
-
     const role = getMyRoomRole(roomType, roomName);
     if (roomType === 'group') {
         const localRole = groupMemberRoles?.[roomName]?.[String(currentUser?.id || '')] || 'Member';
@@ -288,7 +1124,7 @@ function stopIncomingCallAlert() {
         try {
             navigator.vibrate(0);
         } catch (error) {
-            // Ignore browser intervention when user has not interacted yet.
+            
         }
     }
 }
@@ -349,7 +1185,7 @@ function ensureRemoteMediaPlayback(videoEl) {
     };
 
     tryPlay();
-    // Extra retry loop for slow mobile media pipelines.
+    
     setTimeout(tryPlay, 250);
     setTimeout(tryPlay, 900);
 }
@@ -534,24 +1370,7 @@ function bindCallControlButtons() {
 
 function toggleAuthMode() {
     isRegistering = !isRegistering;
-    const usernameFields = document.getElementById('registerFields');
-    const authTitle = document.getElementById('authTitle');
-    const authButton = document.getElementById('authButton');
-    const authToggle = document.querySelector('.auth-toggle span');
-
-    if (isRegistering) {
-        usernameFields.style.display = 'block';
-        authTitle.textContent = 'Register';
-        authButton.textContent = 'Create Account';
-        authToggle.innerHTML = 'Already have an account? <button type="button">Login</button>';
-    } else {
-        usernameFields.style.display = 'none';
-        authTitle.textContent = 'Login';
-        authButton.textContent = 'Login';
-        authToggle.innerHTML = `Don't have an account? <button type="button">Register</button>`;
-    }
-
-    document.querySelector('.auth-toggle button').onclick = toggleAuthMode;
+    syncAuthLanguage();
     const forgotWrap = document.getElementById('forgotPasswordWrap');
     const resetPanel = document.getElementById('resetPasswordPanel');
     if (forgotWrap) forgotWrap.style.display = isRegistering ? 'none' : 'block';
@@ -782,12 +1601,12 @@ function switchAccount() {
 
 
 function connectSocket() {
-    // Reuse existing active socket to avoid duplicating/disrupting signaling during calls.
+   
     if (socket && (socket.connected || socket.active)) {
         return;
     }
 
-    // Cleanup stale socket before creating a new one.
+    
     if (socket) {
         try {
             socket.removeAllListeners();
@@ -811,7 +1630,7 @@ function connectSocket() {
     });
 
     socket.on('users update', (users) => {
-        globalOnlineUsers = Array.isArray(users) ? users : [];
+        globalOnlineUsers = getVisibleMembers(users);
         if (currentChatContext?.type === 'group' || currentChatContext?.type === 'community') {
             const byId = new Map();
             (currentRoomMembers || []).forEach((m) => {
@@ -881,7 +1700,11 @@ function connectSocket() {
             };
             if (previousRoomName !== roomName) {
                 delete groupProfiles[previousRoomName];
-                delete groupMemberRoles[previousRoomName];
+                if (groupMemberRoles[previousRoomName]) {
+                    groupMemberRoles[roomName] = groupMemberRoles[previousRoomName];
+                    delete groupMemberRoles[previousRoomName];
+                    localStorage.setItem('groupMemberRoles', JSON.stringify(groupMemberRoles));
+                }
             }
             groupProfiles[roomName] = merged;
             localStorage.setItem('groupProfiles', JSON.stringify(groupProfiles));
@@ -934,8 +1757,8 @@ function connectSocket() {
                 if (titleEl) {
                     const profile = roomType === 'group' ? getGroupProfile(roomName) : getCommunityProfile(roomName);
                     titleEl.textContent = roomType === 'group'
-                        ? `${profile.icon || '👥'} Group: ${roomName}`
-                        : `${profile.icon || '🌐'} Community: ${roomName}`;
+                        ? `${profile?.image ? '🖼️' : (profile.icon || '👥')} Group: ${roomName}`
+                        : `${profile?.image ? '🖼️' : (profile.icon || '🌐')} Community: ${roomName}`;
                 }
             }
         }
@@ -948,6 +1771,62 @@ function connectSocket() {
             }
         }
 
+        loadFriendsForDM();
+    });
+
+    
+    socket.on('room profile updated broadcast', (payload) => {
+        const roomType = payload?.roomType;
+        const roomName = payload?.roomName;
+        const previousRoomName = payload?.previousRoomName || roomName;
+        const profile = payload?.profile || {};
+        if (!roomType || !roomName) return;
+
+        cacheRoomProfile(roomType, roomName, profile);
+
+        
+        if (roomType === 'group') {
+            const previousProfile = groupProfiles[previousRoomName] || groupProfiles[roomName] || {};
+            groupProfiles[roomName] = {
+                ...previousProfile,
+                ...profile,
+                name: profile?.name || roomName
+            };
+            if (previousRoomName !== roomName) {
+                delete groupProfiles[previousRoomName];
+            }
+            localStorage.setItem('groupProfiles', JSON.stringify(groupProfiles));
+
+            
+            const index = joinedGroups.findIndex((g) => String(g) === String(previousRoomName));
+            if (index >= 0) {
+                joinedGroups[index] = roomName;
+                localStorage.setItem('joinedGroups', JSON.stringify(joinedGroups));
+            }
+        }
+
+        if (roomType === 'community') {
+            const previousProfile = communityProfiles[previousRoomName] || communityProfiles[roomName] || {};
+            communityProfiles[roomName] = {
+                ...previousProfile,
+                ...profile,
+                name: profile?.name || roomName
+            };
+            if (previousRoomName !== roomName) {
+                delete communityProfiles[previousRoomName];
+            }
+            localStorage.setItem('communityProfiles', JSON.stringify(communityProfiles));
+
+            
+            const index = joinedCommunities.findIndex((g) => String(g) === String(previousRoomName));
+            if (index >= 0) {
+                joinedCommunities[index] = roomName;
+                localStorage.setItem('joinedCommunities', JSON.stringify(joinedCommunities));
+            }
+        }
+
+        
+        refreshRoomVisuals(roomType, roomName);
         loadFriendsForDM();
     });
 
@@ -1095,14 +1974,13 @@ function connectSocket() {
     });
 
     socket.on('room user typing', (data) => {
-        
-        if ((currentChatContext.type === 'group' || currentChatContext.type === 'room') && String(currentChatContext.id) === String(data.roomId)) {
+        if (currentChatContext.type === 'group' && String(currentChatContext.id) === String(data.roomId)) {
             showTypingIndicator(data.username);
         }
     });
 
     socket.on('room user stop typing', (data) => {
-        if ((currentChatContext.type === 'group' || currentChatContext.type === 'room') && String(currentChatContext.id) === String(data.roomId)) {
+        if (currentChatContext.type === 'group' && String(currentChatContext.id) === String(data.roomId)) {
             hideTypingIndicator();
         }
     });
@@ -1170,7 +2048,7 @@ function connectSocket() {
         showToast(`${byName} declined the call`, 'warning');
         activeCallState = null;
         closeCustomDialog();
-        // Close overlay if open (waiting screen)
+        
         document.getElementById('callOverlay')?.classList.remove('active');
     });
 
@@ -1206,7 +2084,7 @@ function connectSocket() {
                         return;
                     }
 
-                    // Polite peer: rollback local offer so remote offer can be accepted.
+                    
                     if (peerConnection.signalingState === 'have-local-offer') {
                         await peerConnection.setLocalDescription({ type: 'rollback' });
                     }
@@ -1216,7 +2094,7 @@ function connectSocket() {
                     activeCallState = { callId: payload?.callId || null, peerId: fromId, direction: 'incoming' };
                 }
                 if (isStartingCallSession) {
-                    // Session setup in progress; save offer to process after setup completes
+                    
                     pendingSignalOffer = { fromId, offer: signal.offer };
                     return;
                 }
@@ -1237,7 +2115,7 @@ function connectSocket() {
             }
 
             if (signal.type === 'answer' && peerConnection) {
-                // Only apply answer when we actually sent an offer - prevents 'wrong state: stable' crash
+                
                 if (peerConnection.signalingState !== 'have-local-offer') {
                     console.warn('Ignoring stale answer, signaling state:', peerConnection.signalingState);
                 } else {
@@ -1314,8 +2192,9 @@ function showMainApp() {
         console.log('Error closing panels:', e);
     }
     
-    loadUserProfile();
-    loadShopItems();
+    loadUserProfile().finally(() => {
+        loadShopItems();
+    });
    
     const urlParams = new URLSearchParams(window.location.search);
     const addFriendId = urlParams.get('addFriend');
@@ -1341,9 +2220,13 @@ function showSection(section) {
         document.getElementById('friendsModal').classList.remove('hidden');
     } else if (section === 'shop') {
         document.querySelector('.chat-area').style.display = 'none';
-        loadShopItems();
+        loadUserProfile().finally(() => {
+            loadShopItems();
+        });
         document.getElementById('shopModal').classList.remove('hidden');
     }
+
+    localizeStaticUi(currentLanguage);
 }
 
 function openDM(friendId, friendName) {
@@ -1359,7 +2242,8 @@ function openDM(friendId, friendName) {
     
     
     const isSelfChat = String(friendId) === String(currentUser.id);
-    const displayName = isSelfChat ? `📝 ${currentUser.username} (Notes)` : `💬 ${friendName}`;
+    const isBotChat = String(friendId) === FIRETECH_BOT_USER.userId;
+    const displayName = isSelfChat ? `📝 ${currentUser.username} (Notes)` : isBotChat ? '⚡ FireTech Bot' : `💬 ${friendName}`;
     
     
     const chatTitleEl = document.getElementById('chatTitle');
@@ -1393,6 +2277,21 @@ function openDM(friendId, friendName) {
 }
 
 async function loadDMMessages(friendId) {
+    if (String(friendId) === FIRETECH_BOT_USER.userId) {
+        document.getElementById('messages-container').innerHTML = '';
+        addMessageToChat({
+            from: FIRETECH_BOT_USER.userId,
+            fromUsername: FIRETECH_BOT_USER.username,
+            fromAvatar: null,
+            to: currentUser?.id,
+            content: 'Type /firetech or @firetech for commands. I provide security tips, encryption info, and network insights.',
+            mediaType: 'text',
+            timestamp: new Date().toISOString(),
+            isBot: true
+        });
+        refreshChatScrollbar();
+        return;
+    }
     try {
         const response = await fetch(`${API_BASE}/dms/${friendId}`, {
             headers: { 'Authorization': `Bearer ${currentToken}` }
@@ -1445,7 +2344,32 @@ function openProfile() {
     panel.scrollTop = 0;
     const backdrop = document.getElementById('profileBackdrop');
     if (backdrop) backdrop.style.display = 'block';
-    loadUserProfile();
+
+    if (currentChatContext?.type === 'group' || currentChatContext?.type === 'community') {
+        const isGroup = currentChatContext.type === 'group';
+        const profile = isGroup ? getGroupProfile(currentChatContext.name) : getCommunityProfile(currentChatContext.name);
+        const profileName = document.getElementById('profileName');
+        const profileBio = document.getElementById('profileBio');
+        const profileAvatar = document.getElementById('profileAvatar');
+
+        if (profileName) profileName.textContent = currentChatContext.name;
+        if (profileBio) profileBio.textContent = isGroup ? 'Group profile' : 'Community profile';
+        if (profileAvatar) {
+            if (profile?.image) {
+                profileAvatar.style.backgroundImage = `url(${profile.image})`;
+                profileAvatar.style.backgroundSize = 'cover';
+                profileAvatar.style.backgroundPosition = 'center';
+                profileAvatar.textContent = '';
+            } else {
+                profileAvatar.style.backgroundImage = 'none';
+                profileAvatar.style.backgroundSize = '';
+                profileAvatar.style.backgroundPosition = '';
+                profileAvatar.textContent = profile?.icon || (isGroup ? '👥' : '🌐');
+            }
+        }
+    } else {
+        loadUserProfile();
+    }
 }
 
 function shareProfileLink() {
@@ -1464,12 +2388,12 @@ function shareProfileLink() {
     });
 }
 
-// ==================== PROFILE BANNER ====================
+
 const BANNER_PRESETS = [
-    'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80', // night sky
-    'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80', // abstract geo
-    'https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?w=800&q=80', // purple wave
-    'https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800&q=80', // aurora
+    'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80', 
+    'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80', 
+    'https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?w=800&q=80', 
+    'https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=800&q=80', 
     '#gradient:135,#667eea,#764ba2',
     '#gradient:135,#f093fb,#f5576c',
     '#gradient:135,#4facfe,#00f2fe',
@@ -1538,7 +2462,7 @@ function loadSavedBanner() {
     if (saved) applyBannerPreset(saved);
 }
 
-// ==================== GROUPS FILTER ====================
+
 function filterGroupsList(query) {
     const items = document.querySelectorAll('#groupsList .group-card');
     const q = query.toLowerCase();
@@ -2019,6 +2943,7 @@ async function sendMessage() {
 }
 
 function addMessageToChat(data) {
+    ensureMessageActionInteractionBinding();
     const container = document.getElementById('messages-container');
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message';messageDiv.dataset.messageId = data.id || Date.now();
@@ -2115,13 +3040,19 @@ function addMessageToChat(data) {
     editBtn.className = 'message-action-btn';
     editBtn.innerHTML = '✏️';
     editBtn.title = 'Edit';
-    editBtn.onclick = () => editMessage(messageDiv.dataset.messageId, text);
+    editBtn.onclick = (e) => {
+        e.stopPropagation();
+        editMessage(messageDiv.dataset.messageId, text);
+    };
     
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'message-action-btn';
     deleteBtn.innerHTML = '🗑️';
     deleteBtn.title = 'Delete';
-    deleteBtn.onclick = () => deleteMessage(messageDiv.dataset.messageId, messageDiv);
+    deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        deleteMessage(messageDiv.dataset.messageId, messageDiv);
+    };
 
     const replyBtn = document.createElement('button');
     replyBtn.className = 'message-action-btn';
@@ -2154,6 +3085,17 @@ function addMessageToChat(data) {
     }
     
     content.appendChild(actions);
+
+    messageDiv.addEventListener('click', (event) => {
+        if (event.target.closest('.message-actions') || event.target.closest('.message-context-menu') || event.target.closest('.reaction-picker')) {
+            return;
+        }
+        const wasOpen = messageDiv.classList.contains('message-actions-open');
+        closeAllMessageActionRows();
+        if (!wasOpen) {
+            messageDiv.classList.add('message-actions-open');
+        }
+    });
     
     
     const reactionsDiv = document.createElement('div');
@@ -2229,6 +3171,7 @@ function addMessageToChat(data) {
     messageDiv.appendChild(avatar);
     messageDiv.appendChild(content);
     container.appendChild(messageDiv);
+    applyEnhancedEmoji(messageDiv);
     
     
     setTimeout(() => {
@@ -2246,19 +3189,25 @@ function addMessageToChat(data) {
 }
 
 function addCurrentChatToList() {
-    if (!currentChatFriendId || !currentChatFriendName) {
+    if (!currentChatContext || currentChatContext.type === 'none') {
         showToast('Open a chat first', 'warning');
         return;
     }
 
-    const existing = pinnedChats.find(chat => String(chat.id) === String(currentChatFriendId));
-    if (existing) {
+    const chatKey = `${currentChatContext.type}:${currentChatContext.id || currentChatContext.name}`;
+    if (!chatKey.includes(':') || chatKey.endsWith(':')) {
+        showToast('Open a valid chat first', 'warning');
+        return;
+    }
+
+    if (pinnedChats.includes(chatKey)) {
         showToast('Chat already in your list', 'warning');
         return;
     }
 
-    pinnedChats.push({ id: currentChatFriendId, name: currentChatFriendName });
+    pinnedChats.push(chatKey);
     localStorage.setItem('pinnedChats', JSON.stringify(pinnedChats));
+    updatePinButtonState();
     loadFriendsForDM();
     showToast('Chat added to list');
 }
@@ -2267,7 +3216,7 @@ function updateMembersList(users) {
     const membersList = document.getElementById('membersList');
     membersList.innerHTML = '';
 
-    users.forEach(user => {
+    getVisibleMembers(users).forEach(user => {
         const item = document.createElement('div');
         item.className = 'member-item';
         item.style.cursor = 'pointer';
@@ -2298,6 +3247,10 @@ function updateMembersList(users) {
 
         
         item.onclick = () => {
+            if (String(userId) === FIRETECH_BOT_USER.userId) {
+                openDM(FIRETECH_BOT_USER.userId, FIRETECH_BOT_USER.username);
+                return;
+            }
             if (!userId) {
                 showToast('❌ User ID not available', 'error');
                 return;
@@ -2342,7 +3295,12 @@ function renderMembersSidebarFromRoom(members) {
     if (!membersList) return;
 
     membersList.innerHTML = '';
-    members.forEach((member) => {
+    const visibleMembers = Array.isArray(members) ? [...members] : [];
+    if (!visibleMembers.some((member) => String(member?.id || member?.userId || '') === FIRETECH_BOT_USER.userId)) {
+        visibleMembers.push(FIRETECH_BOT_USER);
+    }
+
+    visibleMembers.forEach((member) => {
         const memberId = String(member.id || member.userId || '');
         const isSelf = memberId && (memberId === String(currentUser?.id) || memberId === String(currentUser?._id));
         const normalizedMember = {
@@ -2392,6 +3350,10 @@ function renderMembersSidebarFromRoom(members) {
 
         item.onclick = () => {
             if (!memberId) return;
+            if (memberId === FIRETECH_BOT_USER.userId) {
+                openDM(FIRETECH_BOT_USER.userId, FIRETECH_BOT_USER.username);
+                return;
+            }
             if (String(memberId) === String(currentUser?.id) || String(memberId) === String(currentUser?._id)) {
                 openProfile();
             } else {
@@ -2426,7 +3388,7 @@ async function handleFileUpload(event) {
         return;
     }
 
-    // Show upload spinner in the input bar
+    
     const inputArea = document.querySelector('.input-area');
     let spinnerEl = null;
     if (inputArea) {
@@ -2478,7 +3440,7 @@ async function handleFileUpload(event) {
         }
     }
 
-    // Remove spinner
+   
     if (spinnerEl) spinnerEl.remove();
 
     if (sentCount > 0) {
@@ -2532,6 +3494,7 @@ async function loadFriendsForDM() {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
         const friends = await response.json();
+        const dict = getUiDictionary(currentLanguage);
 
         const channelsList = document.getElementById('channelsList');
         channelsList.innerHTML = '';
@@ -2555,7 +3518,7 @@ async function loadFriendsForDM() {
         if (pinnedFriends.length > 0) {
             const pinnedTitle = document.createElement('div');
             pinnedTitle.className = 'channel-section-title';
-            pinnedTitle.textContent = '📌 PINNED';
+            pinnedTitle.textContent = `📌 ${translateRawText('Pinned', dict)}`;
             channelsList.appendChild(pinnedTitle);
 
             pinnedFriends.forEach(friend => {
@@ -2566,7 +3529,7 @@ async function loadFriendsForDM() {
         if (joinedCommunities.length > 0) {
             const communitiesTitle = document.createElement('div');
             communitiesTitle.className = 'channel-section-title';
-            communitiesTitle.textContent = 'COMMUNITIES';
+            communitiesTitle.textContent = translateRawText('Communities', dict);
             channelsList.appendChild(communitiesTitle);
 
             joinedCommunities.forEach(community => {
@@ -2595,7 +3558,7 @@ async function loadFriendsForDM() {
         if (joinedGroups.length > 0) {
             const groupsTitle = document.createElement('div');
             groupsTitle.className = 'channel-section-title';
-            groupsTitle.textContent = 'GROUPS';
+            groupsTitle.textContent = translateRawText('Groups', dict);
             channelsList.appendChild(groupsTitle);
 
             joinedGroups.forEach(group => {
@@ -2622,7 +3585,7 @@ async function loadFriendsForDM() {
 
         const directTitle = document.createElement('div');
         directTitle.className = 'channel-section-title';
-        directTitle.textContent = 'DIRECT MESSAGES';
+        directTitle.textContent = translateRawText('Direct Messages', dict);
         channelsList.appendChild(directTitle);
         
         
@@ -2641,7 +3604,7 @@ async function loadFriendsForDM() {
         
         const selfText = document.createElement('span');
         selfText.className = 'channel-label';
-        selfText.textContent = `${currentUser.username} (You)`;
+        selfText.textContent = `${currentUser.username} (${translateRawText('You', dict)})`;
         
         selfItem.appendChild(selfAvatar);
         selfItem.appendChild(selfText);
@@ -2653,7 +3616,7 @@ async function loadFriendsForDM() {
             empty.style.padding = '10px';
             empty.style.color = 'var(--text-secondary)';
             empty.style.fontSize = '12px';
-            empty.textContent = 'No friends yet';
+            empty.textContent = translateRawText('No friends yet', dict);
             channelsList.appendChild(empty);
         } else {
             unpinnedFriends.forEach(friend => {
@@ -2739,7 +3702,10 @@ async function loadFriends() {
             .sort((a, b) => Number(b.id) - Number(a.id));
 
         if (normalizedRequests.length === 0) {
-            requestsDiv.innerHTML = '<p style="color: var(--text-secondary);">No pending requests</p>';
+            const emptyMsg = document.createElement('p');
+            emptyMsg.style.color = 'var(--text-secondary)';
+            emptyMsg.textContent = translateRawText('No pending requests', dict);
+            requestsDiv.appendChild(emptyMsg);
         }
         normalizedRequests.forEach((req) => {
             const item = document.createElement('div');
@@ -2755,11 +3721,11 @@ async function loadFriends() {
             item.innerHTML = `
                 <div style="flex: 1; cursor: pointer;" onclick="visitUserProfile('${req.from.id}', '${req.from.username}')">
                     <div class="friend-name">${req.from.username}</div>
-                    <div class="friend-status">Pending request</div>
+                    <div class="friend-status">${translateRawText('Pending request', dict)}</div>
                 </div>
                 <div style="display:flex; gap:8px;">
-                    <button onclick="acceptFriendRequest('${req.id}')" class="buy-btn">Accept</button>
-                    <button onclick="rejectFriendRequest('${req.id}')" class="buy-btn" style="background: var(--danger);">Decline</button>
+                    <button onclick="acceptFriendRequest('${req.id}')" class="buy-btn">${translateRawText('Accept', dict)}</button>
+                    <button onclick="rejectFriendRequest('${req.id}')" class="buy-btn" style="background: var(--danger);">${translateRawText('Decline', dict)}</button>
                 </div>
             `;
             requestsDiv.appendChild(item);
@@ -2768,19 +3734,24 @@ async function loadFriends() {
         const friendsList = document.getElementById('friendsList');
         friendsList.innerHTML = '';
         if (friends.length === 0) {
-            friendsList.innerHTML = '<p style="color: var(--text-secondary);">No friends yet</p>';
+            const emptyMsg = document.createElement('p');
+            emptyMsg.style.color = 'var(--text-secondary)';
+            emptyMsg.textContent = translateRawText('No friends yet', dict);
+            friendsList.appendChild(emptyMsg);
         }
         friends.forEach(friend => {
             const item = document.createElement('div');
             item.className = 'friend-item';
             item.style.cursor = 'pointer';
-            const status = friend.status === 'online' ? '🟢 Online' : '⚫ Offline';
+            const status = friend.status === 'online' 
+                ? `🟢 ${translateRawText('Online', dict)}` 
+                : `⚫ ${translateRawText('Offline', dict)}`;
             item.innerHTML = `
                 <div onclick="openDM('${friend.id}', '${friend.username}')" style="flex: 1;">
                     <div class="friend-name">${friend.username}</div>
                     <div class="friend-status">${status}</div>
                 </div>
-                <div onclick="event.stopPropagation(); visitUserProfile('${friend.id}', '${friend.username}')" style="padding: 8px 12px; background: var(--primary-color); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 12px; font-weight: 600;">👤 Profile</div>
+                <div onclick="event.stopPropagation(); visitUserProfile('${friend.id}', '${friend.username}')" style="padding: 8px 12px; background: var(--primary-color); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 12px; font-weight: 600;">${translateRawText('Profile', dict)}</div>
             `;
             friendsList.appendChild(item);
         });
@@ -2842,44 +3813,53 @@ async function sendFriendRequestFromLink(friendId) {
 
 async function loadShopItems() {
     try {
+       
+        const syncedCoins = await syncCurrentUserCoinsFromProfile();
+        let userCoins = Number.isFinite(syncedCoins) ? syncedCoins : getCurrentCoinBalance();
+        
         const response = await fetch(`${API_BASE}/shop`, {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-        const apiItems = await response.json();
-        const items = Array.isArray(apiItems) && apiItems.length > 0 ? apiItems : [
-            { id: 'fallback_banner_neon', name: 'Neon Banner Effect', description: 'Animated neon gradient banner for your profile.', price: 450, category: 'Banners' },
-            { id: 'fallback_badge_founder', name: 'Founder Badge', description: 'Exclusive badge shown next to your username.', price: 320, category: 'Badges' },
-            { id: 'fallback_color_pack', name: 'Color Burst Pack', description: 'Unlock 12 vibrant accent color themes.', price: 380, category: 'Themes' },
-            { id: 'fallback_chat_fx', name: 'Message Glow FX', description: 'Subtle glow animation for your sent messages.', price: 260, category: 'Effects' },
-            { id: 'fallback_avatar_ring', name: 'Aura Avatar Ring', description: 'Premium animated ring around your avatar.', price: 520, category: 'Avatar' },
-            { id: 'fallback_nameplate', name: 'Crystal Nameplate', description: 'Polished nameplate style in member list.', price: 410, category: 'Nameplates' }
-        ];
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload?.error || 'Failed to load shop items');
+        }
+        const items = Array.isArray(payload) ? payload : [];
 
         cachedShopItemsById = {};
         items.forEach((item) => {
-            cachedShopItemsById[item.id] = item;
+            if (item?.id) cachedShopItemsById[item.id] = item;
+            if (item?.itemId) cachedShopItemsById[item.itemId] = item;
         });
 
         const shopList = document.getElementById('shopList');
         shopList.innerHTML = '';
+        const dict = getUiDictionary(currentLanguage);
 
-        const userCoins = Number(currentUser?.coins || 0);
+        const hasKnownCoinBalance = Number.isFinite(userCoins);
 
         const shopHeader = document.createElement('div');
         shopHeader.className = 'shop-hero';
         shopHeader.innerHTML = `
-            <div class="shop-hero-title">Premium Shop</div>
-            <div class="shop-hero-subtitle">Instant equip items, profile cosmetics, and seasonal packs</div>
-            <div class="shop-hero-discount">Live Deals: up to 20% off featured items</div>
+            <div class="shop-hero-title">${translateRawText('Premium Shop', dict)}</div>
+            <div class="shop-hero-subtitle">${translateRawText('Instant equip items, profile cosmetics, and seasonal packs', dict)}</div>
+            <div class="shop-hero-discount">${translateRawText('Live Deals: up to 20% off featured items', dict)}</div>
+            <div style="margin-top: 12px; font-size: 14px; color: var(--text-secondary);">${translateRawText('You have', dict)}: <span style="color: var(--primary-color); font-weight: 700;">${hasKnownCoinBalance ? userCoins : '...'} 💰</span></div>
         `;
         shopList.appendChild(shopHeader);
 
         if (items.length === 0) {
-            shopList.innerHTML = '<p style="color: var(--text-secondary);">No shop items available</p>';
+            const empty = document.createElement('p');
+            empty.style.color = 'var(--text-secondary)';
+            empty.textContent = translateRawText('No shop items available', dict);
+            shopList.appendChild(empty);
         } else {
             items.forEach(item => {
                 const itemDiv = document.createElement('div');
-                const canAfford = userCoins >= Number(item.price || 0);
+                const parsedItemPrice = parseFlexibleNumber(item.price);
+                const itemPrice = Number.isFinite(parsedItemPrice) ? parsedItemPrice : 0;
+                const canAfford = Number.isFinite(userCoins) ? userCoins >= itemPrice : false;
+                const actionLabel = canAfford ? translateRawText('Buy Now', dict) : translateRawText('Need Coins', dict);
                 itemDiv.className = 'shop-item';
                 itemDiv.innerHTML = `
                     <div style="display:flex; flex-direction:column; gap:4px;">
@@ -2891,21 +3871,30 @@ async function loadShopItems() {
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span class="shop-item-price">${item.price} 💰</span>
-                        <button onclick="buyItem('${item.id}')" class="buy-btn" ${canAfford ? '' : 'disabled'}>${canAfford ? 'Buy Now' : 'Not enough coins'}</button>
+                        <button onclick="buyItem('${item.id || item.itemId}')" class="buy-btn">${actionLabel}</button>
                     </div>
                 `;
+
+                if (hasKnownCoinBalance && !canAfford) {
+                    itemDiv.style.opacity = '0.86';
+                    itemDiv.title = `${translateRawText('Need', dict)} ${itemPrice} • ${translateRawText('You have', dict)} ${userCoins}`;
+                }
+
                 shopList.appendChild(itemDiv);
             });
         }
 
-        loadUserProfile();
+        localizeStaticUi(currentLanguage);
     } catch (error) {
         console.error('Failed to load shop:', error);
+        showToast(error.message || 'Failed to load shop', 'error');
     }
 }
 
 async function buyItem(itemId) {
     try {
+        await syncCurrentUserCoinsFromProfile();
+
         const response = await fetch(`${API_BASE}/shop/buy`, {
             method: 'POST',
             headers: {
@@ -2920,10 +3909,9 @@ async function buyItem(itemId) {
             if (typeof data?.coins === 'number') {
                 currentUser.coins = data.coins;
                 localStorage.setItem('user', JSON.stringify(currentUser));
-                const coinsDisplay = document.getElementById('coinsDisplay');
-                if (coinsDisplay) {
-                    coinsDisplay.textContent = `💰 Coins: ${data.coins}`;
-                }
+                
+                
+                updateAllCoinDisplays(data.coins);
             }
 
             const purchasedItem = data?.purchasedItem || cachedShopItemsById[itemId];
@@ -2931,15 +3919,20 @@ async function buyItem(itemId) {
                 applyShopItem(purchasedItem.id || itemId, purchasedItem.category);
             }
 
-            showToast('Item purchased and applied!');
+            showToast('Item purchased and applied!', 'success');
             loadShopItems();
             loadInventory();
             renderSavedItemsSummary();
         } else {
-            showToast(data.error, 'error');
+            await syncCurrentUserCoinsFromProfile();
+            loadShopItems();
+            loadInventory();
+            showToast(data?.error || 'Purchase failed', 'error');
         }
     } catch (error) {
         console.error(error);
+        await syncCurrentUserCoinsFromProfile();
+        loadShopItems();
         showToast('Error purchasing item', 'error');
     }
 }
@@ -2964,17 +3957,41 @@ async function loadInventory() {
         inventory.forEach(item => {
             const shopItem = item.ShopItem || item.itemId;
             if (!shopItem) return;
+            const shopItemId = shopItem.id || shopItem.itemId;
+            const category = shopItem.category;
+            const isEquipped = Boolean(category && equippedShopItems?.[category] && String(equippedShopItems[category]) === String(shopItemId));
             const itemDiv = document.createElement('div');
             itemDiv.className = 'shop-item';
             itemDiv.style.cursor = 'pointer';
+            
+            
+            const toggleButton = document.createElement('button');
+            toggleButton.className = 'buy-btn';
+            if (isEquipped) {
+                toggleButton.textContent = 'Disable';
+                toggleButton.style.background = 'var(--danger)';
+                toggleButton.onclick = () => toggleShopItem(shopItemId, category, false);
+            } else {
+                toggleButton.textContent = 'Enable';
+                toggleButton.style.background = 'var(--success)';
+                toggleButton.onclick = () => toggleShopItem(shopItemId, category, true);
+            }
+            
             itemDiv.innerHTML = `
-                <div>
+                <div style="flex: 1;">
                     <div class="shop-item-name">${shopItem.name}</div>
                     <div style="font-size: 12px; color: var(--text-secondary);">${shopItem.description}</div>
                     <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Qty: ${item.quantity}</div>
+                    <div style="font-size: 11px; color: ${isEquipped ? 'var(--success)' : 'var(--text-secondary)'}; margin-top: 4px;">${isEquipped ? '✅ Enabled' : '⭕ Disabled'}</div>
                 </div>
-                <button onclick="applyShopItem('${shopItem.id}', '${shopItem.category}')" class="buy-btn" style="background: var(--primary-color);">Use</button>
             `;
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.gap = '6px';
+            buttonContainer.appendChild(toggleButton);
+            itemDiv.appendChild(buttonContainer);
+            
             inventoryList.appendChild(itemDiv);
         });
 
@@ -2984,8 +4001,69 @@ async function loadInventory() {
     }
 }
 
+function toggleShopItem(itemId, category, enable) {
+    if (enable) {
+        
+        applyShopItem(itemId, category);
+        showToast('Item enabled!', 'success');
+    } else {
+       
+        if (category) {
+            clearShopItemEffect(category);
+            delete equippedShopItems[category];
+            saveEquippedShopItems();
+            loadInventory();
+            showToast('Item disabled!', 'success');
+        }
+    }
+}
+
 function saveEquippedShopItems() {
     localStorage.setItem('equippedShopItems', JSON.stringify(equippedShopItems));
+}
+
+function ensureThemeColorBackup() {
+    if (baseThemePrimaryColor && baseThemePrimaryHover) return;
+    const styles = getComputedStyle(document.documentElement);
+    baseThemePrimaryColor = baseThemePrimaryColor || styles.getPropertyValue('--primary-color').trim() || '#5865f2';
+    baseThemePrimaryHover = baseThemePrimaryHover || styles.getPropertyValue('--primary-hover').trim() || '#4752c4';
+    localStorage.setItem('baseThemePrimaryColor', baseThemePrimaryColor);
+    localStorage.setItem('baseThemePrimaryHover', baseThemePrimaryHover);
+}
+
+function clearShopItemEffect(category) {
+    if (!category) return;
+
+    if (category === 'Banners' || category === 'Themes') {
+        ensureThemeColorBackup();
+        document.documentElement.style.setProperty('--primary-color', baseThemePrimaryColor || '#5865f2');
+        document.documentElement.style.setProperty('--primary-hover', baseThemePrimaryHover || '#4752c4');
+    }
+
+    if (category === 'Effects') {
+        document.getElementById('message-glow-effect')?.remove();
+    }
+
+    if (category === 'Avatar') {
+        document.getElementById('avatar-aura-effect')?.remove();
+    }
+
+    if (category === 'Nameplates') {
+        document.getElementById('nameplate-effect')?.remove();
+    }
+}
+
+function unequipShopCategory(category) {
+    if (!category || !equippedShopItems?.[category]) {
+        showToast('Nothing equipped in this category', 'warning');
+        return;
+    }
+
+    clearShopItemEffect(category);
+    delete equippedShopItems[category];
+    saveEquippedShopItems();
+    loadInventory();
+    showToast('Item unequipped', 'success');
 }
 
 function applyPersistedShopEffects() {
@@ -3013,7 +4091,7 @@ async function flushQueuedIceCandidates() {
 async function addOrQueueIceCandidate(candidateData) {
     if (!candidateData) return;
 
-    // Candidate can arrive before peerConnection exists; keep it for later.
+    
     if (!peerConnection) {
         pendingRemoteIceCandidates.push(candidateData);
         return;
@@ -3026,7 +4104,7 @@ async function addOrQueueIceCandidate(candidateData) {
         try {
             await peerConnection.addIceCandidate(candidate);
         } catch (iceErr) {
-            // Stale or duplicate ICE candidates are common and harmless after ICE restart
+            
             console.warn('ICE candidate ignored:', iceErr.message);
         }
     } else {
@@ -3042,6 +4120,7 @@ function applyShopItem(itemId, category, options = {}) {
 
     const effectsMap = {
         'Banners': () => {
+            ensureThemeColorBackup();
             document.documentElement.style.setProperty('--primary-color', '#00d4ff');
             document.documentElement.style.setProperty('--primary-hover', '#00b8e6');
             notify('✨ Banner effect applied! Your profile now has a neon glow.', 'success');
@@ -3051,6 +4130,7 @@ function applyShopItem(itemId, category, options = {}) {
             
         },
         'Themes': () => {
+            ensureThemeColorBackup();
             const colors = ['#ff6b9d', '#c44569', '#4a69bd', '#6a89cc', '#60a3bc', '#78e08f', '#f6b93b', '#e55039'];
             const randomColor = colors[Math.floor(Math.random() * colors.length)];
             document.documentElement.style.setProperty('--primary-color', randomColor);
@@ -3117,10 +4197,12 @@ function applyShopItem(itemId, category, options = {}) {
 
     const applyEffect = effectsMap[category];
     if (applyEffect) {
+        clearShopItemEffect(category);
         applyEffect();
         if (!skipPersist && category) {
             equippedShopItems[category] = itemId;
             saveEquippedShopItems();
+            loadInventory();
         }
     } else {
         notify('Effect applied!', 'success');
@@ -3133,19 +4215,34 @@ function showToast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
+
+    const dict = getUiDictionary(currentLanguage);
+    const sourceMessage = String(message || '');
+    let displayMessage = translateRawText(sourceMessage, dict);
     
     const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : '⚠';
-    const title = type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Warning';
+    const rawTitle = type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Warning';
+    const title = translateRawText(rawTitle, dict);
     
     toast.innerHTML = `
         <div class="toast-icon">${icon}</div>
         <div class="toast-content">
             <div class="toast-title">${title}</div>
-            <div class="toast-message">${message}</div>
+            <div class="toast-message">${displayMessage}</div>
         </div>
     `;
     
     container.appendChild(toast);
+
+    if (currentLanguage !== 'en' && displayMessage === sourceMessage && shouldAutoTranslate(sourceMessage)) {
+        fetchAutoTranslation(sourceMessage, currentLanguage).then((translated) => {
+            if (!translated) return;
+            const messageEl = toast.querySelector('.toast-message');
+            if (messageEl) messageEl.textContent = translated;
+        });
+    }
+
+    applyEnhancedEmoji(toast);
     
     setTimeout(() => {
         toast.remove();
@@ -3157,7 +4254,6 @@ function showToast(message, type = 'success') {
 function openSettings() {
     const panel = document.getElementById('settingsPanel');
     if (!panel) return;
-    panel.style.removeProperty('right');
     panel.classList.add('show');
     if (currentUser) {
         document.getElementById('settingsEmail').value = currentUser.email || '';
@@ -3165,6 +4261,8 @@ function openSettings() {
     }
     populateAccountSwitcher();
     applySettingsToUI();
+    switchSettingsTab('account', document.querySelector('.settings-nav-item'));
+    localizeStaticUi(currentLanguage);
 }
 
 function closeSettings() {
@@ -3188,7 +4286,20 @@ function switchSettingsTab(tab, triggerEl) {
     document.querySelectorAll('.settings-section').forEach(section => {
         section.classList.remove('active');
     });
-    document.getElementById(tab + 'Settings').classList.add('active');
+    const targetSection = document.getElementById(tab + 'Settings');
+    if (targetSection) targetSection.classList.add('active');
+    if (tab === 'language') {
+        renderLangGrid();
+        const lang = LANGUAGES.find((l) => l.code === currentLanguage) || LANGUAGES[0];
+        const langDisplay = document.getElementById('currentLangDisplay');
+        if (langDisplay) langDisplay.textContent = `${lang.flag} ${lang.name}`;
+    }
+}
+
+function openLanguagePicker() {
+    openSettings();
+    const trigger = Array.from(document.querySelectorAll('.settings-nav-item')).find((item) => item.textContent.includes('Language'));
+    switchSettingsTab('language', trigger || null);
 }
 
 async function updateUsername() {
@@ -3380,7 +4491,6 @@ async function sendStagedDm(targetId, payload) {
         throw new Error('Socket not connected');
     }
 
-    // Optimistic render so the sender sees it immediately
     const optimistic = {
         id: Date.now(),
         from: currentUser.id,
@@ -3627,15 +4737,16 @@ function applySettingsToUI() {
 function openCommunitiesModal() {
     const modal = document.getElementById('communitiesModal');
     const list = document.getElementById('communitiesList');
+    const dict = getUiDictionary(currentLanguage);
     
    
     const communities = [
-        { name: 'Gaming', iconId: '1F579', description: 'Talk about your favorite games' },
-        { name: 'Coding', iconId: '1F4BB', description: 'Share code and learn together' },
-        { name: 'Music', iconId: '1F3B5', description: 'Discuss and share music' },
-        { name: 'Art', iconId: '1F3A8', description: 'Share your creative works' },
-        { name: 'Sports', iconId: '26BD', description: 'Sports fans unite' },
-        { name: 'Movies', iconId: '1F3AC', description: 'Film enthusiasts' }
+        { name: 'Gaming', icon: '🕹️', description: 'Talk about your favorite games' },
+        { name: 'Coding', icon: '🧠', description: 'Share code and learn together' },
+        { name: 'Music', icon: '🎙️', description: 'Discuss and share music' },
+        { name: 'Art', icon: '🖌️', description: 'Share your creative works' },
+        { name: 'Sports', icon: '🏟️', description: 'Sports fans unite' },
+        { name: 'Movies', icon: '🎞️', description: 'Film enthusiasts' }
     ];
     
     list.innerHTML = communities.map(c => {
@@ -3644,20 +4755,20 @@ function openCommunitiesModal() {
         const safeCommunityName = String(c.name).replace(/'/g, "\\'");
         const avatarHtml = profile.image
             ? `<div class="group-avatar" style="background-image:url('${profile.image}'); background-size:cover; background-position:center; border-radius:14px; width:48px; height:48px; flex-shrink:0;"></div>`
-            : `<div class="group-avatar">${profile.icon || String.fromCodePoint(parseInt(c.iconId, 16))}</div>`;
+            : `<div class="group-avatar"><span class="emoji-glyph">${profile.icon || c.icon}</span></div>`;
         return `
             <div class="group-card community-card">
                 ${avatarHtml}
                 <div class="group-info">
-                    <div class="group-name">${profile.icon || '🌐'} ${c.name}</div>
+                    <div class="group-name">${c.name}</div>
                     <div class="group-desc">${c.description}</div>
                 </div>
                 <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end; min-width:96px;">
-                    ${isJoined ? `<button class="buy-btn" onclick="openCommunityDetails('${safeCommunityName}')" style="background: var(--secondary-color);">⚙ Manage</button>` : ''}
+                    ${isJoined ? `<button class="buy-btn" onclick="openCommunityDetails('${safeCommunityName}')" style="background: var(--secondary-color);">${translateRawText('Manage', dict)}</button>` : ''}
                         <button class="buy-btn" 
                             onclick="${isJoined ? `openCommunityChat('${safeCommunityName}'); closeCommunitiesModal();` : `joinCommunity('${safeCommunityName}')`}" 
                             style="${isJoined ? 'background: var(--success);' : ''}">
-                            ${isJoined ? '✅ Open' : '➕ Join'}
+                            ${translateRawText(isJoined ? 'Open' : 'Join', dict)}
                         </button>
                 </div>
             </div>
@@ -3665,6 +4776,7 @@ function openCommunitiesModal() {
     }).join('');
     
     modal.classList.remove('hidden');
+    localizeStaticUi(currentLanguage);
 }
 
 function closeCommunitiesModal() {
@@ -3683,15 +4795,16 @@ function filterCommunitiesList(query) {
 function openGroupsModal() {
     const modal = document.getElementById('groupsModal');
     const list = document.getElementById('groupsList');
+    const dict = getUiDictionary(currentLanguage);
     
     const baseGroups = [
-        { name: 'Study Group', emoji: '📚', description: 'Study together and share notes' },
-        { name: 'Project Team', emoji: '💼', description: 'Collaborate on projects' },
-        { name: 'Family', emoji: '👨‍👩‍👧', description: 'Family group chat' },
-        { name: 'Friends', emoji: '🎉', description: 'Hang out with friends' },
-        { name: 'Work', emoji: '🏢', description: 'Work related discussions' },
-        { name: 'Gaming', emoji: '🎮', description: 'Gaming sessions and talk' },
-        { name: 'Music', emoji: '🎵', description: 'Share music and playlists' }
+        { name: 'Study Group', emoji: '🧠', description: 'Study together and share notes' },
+        { name: 'Project Team', emoji: '🧰', description: 'Collaborate on projects' },
+        { name: 'Family', emoji: '🫶', description: 'Family group chat' },
+        { name: 'Friends', emoji: '🎈', description: 'Hang out with friends' },
+        { name: 'Work', emoji: '🏙️', description: 'Work related discussions' },
+        { name: 'Gaming', emoji: '🕹️', description: 'Gaming sessions and talk' },
+        { name: 'Music', emoji: '🎙️', description: 'Share music and playlists' }
     ];
     const groups = Array.from(new Set([...baseGroups.map((g) => g.name), ...joinedGroups])).map((groupName) => {
         const preset = baseGroups.find((g) => g.name === groupName) || { name: groupName, emoji: '👥', description: 'Custom group chat' };
@@ -3706,7 +4819,7 @@ function openGroupsModal() {
         const safeGroupName = String(g.name).replace(/'/g, "\\'");
         const avatarHtml = profile.image
             ? `<div class="group-avatar" style="background-image:url('${profile.image}'); background-size:cover; background-position:center; border-radius:14px; width:48px; height:48px; flex-shrink:0;"></div>`
-            : `<div class="group-avatar">${profile.icon || g.emoji}</div>`;
+            : `<div class="group-avatar"><span class="emoji-glyph">${profile.icon || g.emoji}</span></div>`;
         return `
             <div class="group-card">
                 ${avatarHtml}
@@ -3719,16 +4832,17 @@ function openGroupsModal() {
                     <button class="buy-btn" 
                         onclick="${isJoined ? `openGroupChat('${safeGroupName}'); closeGroupsModal();` : `joinGroup('${safeGroupName}')`}" 
                         style="${isJoined ? 'background: var(--success);' : ''}">
-                        ${isJoined ? '✅ Open' : '➕ Join'}
+                        ${translateRawText(isJoined ? 'Open' : 'Join', dict)}
                     </button>
-                    <button class="secondary-btn" style="padding:6px 10px; font-size:12px;" onclick="openGroupAppearanceEditor('${safeGroupName}')">🎨 Edit</button>
-                    ${isJoined ? `<div style="display:flex; gap:6px;"><button class="secondary-btn" style="padding:5px 8px; font-size:11px;" onclick="openGroupAppearanceEditor('${safeGroupName}')">Icon</button><button class="secondary-btn" style="padding:5px 8px; font-size:11px;" onclick="changeGroupImagePrompt('${safeGroupName}')">Photo</button></div>` : ''}
+                    <button class="secondary-btn" style="padding:6px 10px; font-size:12px;" onclick="openGroupAppearanceEditor('${safeGroupName}')">${translateRawText('Edit', dict)}</button>
+                    ${isJoined ? `<div style="display:flex; gap:6px;"><button class="secondary-btn" style="padding:5px 8px; font-size:11px;" onclick="openGroupAppearanceEditor('${safeGroupName}')">${translateRawText('Icon', dict)}</button><button class="secondary-btn" style="padding:5px 8px; font-size:11px;" onclick="changeGroupImagePrompt('${safeGroupName}')">${translateRawText('Photo', dict)}</button></div>` : ''}
                 </div>
             </div>
         `;
     }).join('');
     
     modal.classList.remove('hidden');
+    localizeStaticUi(currentLanguage);
 }
 
 function closeGroupsModal() {
@@ -3739,13 +4853,13 @@ function openGroupAppearanceEditor(name) {
     const profile = getGroupProfile(name);
     const safeName = String(name).replace(/'/g, "\\'");
     const canManage = canManageRoomAppearance('group', name);
-    const iconList = ['👥', '📚', '💼', '👨‍👩‍👧', '🎉', '🏢', '🎮', '🎵', '⚽', '🍕', '🚀', '💻'];
+    const iconList = ['🧠', '⚡', '🔐', '🌐', '📡', '🎯', '🚀', '💎', '🏆', '🎨', '🔧', '📊', '🎭', '💼', '📚', '🎬', '🎮', '🏃', '🌟', '🔥', '❤️', '🎉', '⭐', '🎪', '🎵', '🎸', '🎤', '🎲', '🧩', '🎓'];
     const iconsHtml = iconList.map((icon) => (
         `<button onclick="setGroupIcon('${safeName}', '${icon}')" ${canManage ? '' : 'disabled'} style="font-size: 28px; padding: 8px; border: 2px solid var(--border-color); border-radius: 8px; background: var(--bg-color); cursor: ${canManage ? 'pointer' : 'not-allowed'}; opacity: ${canManage ? '1' : '0.55'};">${icon}</button>`
     )).join('');
 
     const html = `
-        <div style="display:grid; gap:10px; min-width:280px;">
+        <div style="display:grid; gap:10px; min-width:280px; max-width:min(92vw, 560px); max-height:70vh; overflow-y:auto; padding-right:4px;">
             <div style="font-size:13px; color:var(--text-secondary);">Customize group appearance for <strong>${name}</strong>. ${canManage ? 'You can manage this room.' : 'Only Owner or Admin can edit this room.'}</div>
             <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">${iconsHtml}</div>
             <button class="secondary-btn" onclick="renameGroupPrompt('${safeName}'); closeCustomDialog();" ${canManage ? '' : 'disabled'}>✏ Rename Group</button>
@@ -3805,9 +4919,32 @@ function renameGroupPrompt(name) {
 
 function showGroupRoles(name) {
     const roleMap = groupMemberRoles[name] || {};
-    const members = Array.isArray(currentRoomMembers) && currentChatContext?.type === 'group' && currentChatContext?.name === name
+    const activeMembers = Array.isArray(currentRoomMembers) && currentChatContext?.type === 'group' && currentChatContext?.name === name
         ? currentRoomMembers
         : [];
+
+    const membersById = new Map();
+    activeMembers.forEach((m) => {
+        const memberId = String(m?.id || m?.userId || '');
+        if (!memberId) return;
+        membersById.set(memberId, {
+            id: memberId,
+            username: m?.username || 'User',
+            role: m?.role || roleMap[memberId] || 'Member'
+        });
+    });
+
+    Object.entries(roleMap).forEach(([memberId, role]) => {
+        if (membersById.has(memberId)) return;
+        const onlineMatch = (globalOnlineUsers || []).find((u) => String(u?.id || u?.userId || u?._id || '') === String(memberId));
+        membersById.set(memberId, {
+            id: String(memberId),
+            username: onlineMatch?.username || `User ${String(memberId).slice(0, 6)}`,
+            role: role || 'Member'
+        });
+    });
+
+    const members = Array.from(membersById.values());
     const myRole = roleMap[String(currentUser?.id || '')] || 'Member';
     const canManage = myRole === 'Owner' || myRole === 'Admin';
 
@@ -3867,13 +5004,10 @@ function setGroupIcon(name, icon) {
     profile.image = '';
     groupProfiles[name] = profile;
     localStorage.setItem('groupProfiles', JSON.stringify(groupProfiles));
+    cacheRoomProfile('group', name, { icon, image: '' });
     closeCustomDialog();
-    openGroupsModal();
-    if (currentChatContext?.type === 'group' && currentChatContext?.name === name) {
-        document.getElementById('chatTitle').textContent = `${icon} Group: ${name}`;
-    }
     emitRoomProfileUpdate('group', name, { icon, image: '' });
-    loadFriendsForDM();
+    refreshRoomVisuals('group', name, { reopenDetails: true });
     showToast('Group icon updated!', 'success');
 }
 
@@ -3887,10 +5021,10 @@ function resetGroupAppearance(name) {
     profile.icon = '👥';
     groupProfiles[name] = profile;
     localStorage.setItem('groupProfiles', JSON.stringify(groupProfiles));
+    cacheRoomProfile('group', name, { icon: '👥', image: '' });
     closeCustomDialog();
-    openGroupsModal();
     emitRoomProfileUpdate('group', name, { icon: '👥', image: '' });
-    loadFriendsForDM();
+    refreshRoomVisuals('group', name, { reopenDetails: true });
     showToast('Group appearance reset', 'success');
 }
 
@@ -3912,13 +5046,15 @@ function openCommunityChat(name) {
     name = String(name || 'Community');
     console.log('🌐 Opening community chat:', name);
     const profile = getCommunityProfile(name);
+    const dict = getUiDictionary(currentLanguage);
+    const communityLabel = translateRawText('Community', dict);
     currentChatFriendId = null;
-    currentChatFriendName = `Community: ${name}`;
+    currentChatFriendName = `${communityLabel}: ${name}`;
     currentChatContext = { type: 'community', id: name, name };
     clearPendingMediaDraft();
     updatePinButtonState();
     const chatTitleEl = document.getElementById('chatTitle');
-    chatTitleEl.textContent = `${profile.icon || '🌐'} Community: ${name}`;
+    chatTitleEl.textContent = `${profile?.image ? '🖼️' : (profile.icon || '🌐')} ${communityLabel}: ${name}`;
     chatTitleEl.onclick = () => openCommunityDetails(name);
     renderRoomMessages(normalizeRoomKeyClient('community', name), name, 'community');
     currentRoomMembers = [{
@@ -3945,13 +5081,15 @@ function openGroupChat(name) {
     name = String(name || 'Group');
     console.log('👥 Opening group chat:', name);
     const profile = getGroupProfile(name);
+    const dict = getUiDictionary(currentLanguage);
+    const groupLabel = translateRawText('Group', dict);
     currentChatFriendId = null;
-    currentChatFriendName = `Group: ${name}`;
+    currentChatFriendName = `${groupLabel}: ${name}`;
     currentChatContext = { type: 'group', id: name, name };
     clearPendingMediaDraft();
     updatePinButtonState();
     const chatTitleEl = document.getElementById('chatTitle');
-    chatTitleEl.textContent = `${profile.icon || '👥'} Group: ${name}`;
+    chatTitleEl.textContent = `${profile?.image ? '🖼️' : (profile.icon || '👥')} ${groupLabel}: ${name}`;
     chatTitleEl.onclick = null;
     renderRoomMessages(normalizeRoomKeyClient('group', name), name, 'group');
     currentRoomMembers = [{
@@ -4005,7 +5143,11 @@ function joinGroup(name) {
     if (!groupMemberRoles[name]) {
         groupMemberRoles[name] = {};
     }
-    groupMemberRoles[name][String(currentUser?.id || 'self')] = 'Owner';
+    const currentUserId = String(currentUser?.id || 'self');
+    const existingRoles = groupMemberRoles[name];
+    if (!existingRoles[currentUserId]) {
+        existingRoles[currentUserId] = Object.keys(existingRoles).length === 0 ? 'Owner' : 'Member';
+    }
     localStorage.setItem('groupMemberRoles', JSON.stringify(groupMemberRoles));
     joinedGroups.push(name);
     localStorage.setItem('joinedGroups', JSON.stringify(joinedGroups));
@@ -4031,6 +5173,49 @@ const stickers = [
     '☁️', '🌊', '🌺', '🌸', '🌼', '🌻', '🌷', '🌹', '🥀', '🌴'
 ];
 
+const GIF_LIBRARY_BY_CATEGORY = {
+    Trending: [
+        'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif',
+        'https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif',
+        'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
+        'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif',
+        'https://media.giphy.com/media/13CoXDiaCcCoyk/giphy.gif',
+        'https://media.giphy.com/media/3o7527pa7qs9kCG78A/giphy.gif',
+        'https://media.giphy.com/media/XreQmk7ETCak0/giphy.gif',
+        'https://media.giphy.com/media/l0HlNQ03J5JxX6lva/giphy.gif'
+    ],
+    Reactions: [
+        'https://media.giphy.com/media/26tknCqiJrBQG6bxC/giphy.gif',
+        'https://media.giphy.com/media/BPJmthQ3YRwD6QqcVD/giphy.gif',
+        'https://media.giphy.com/media/g9582DNuQppxC/giphy.gif',
+        'https://media.giphy.com/media/VbnUQpnihPSIgIXuZv/giphy.gif',
+        'https://media.giphy.com/media/l3q2K5jinAlChoCLS/giphy.gif',
+        'https://media.giphy.com/media/H3nnOlR7yiCXXQ8e2I/giphy.gif',
+        'https://media.giphy.com/media/LSKVmdIwZFeNEBKBxZ/giphy.gif',
+        'https://media.giphy.com/media/aWPGuTlDqq2yc/giphy.gif'
+    ],
+    Celebration: [
+        'https://media.giphy.com/media/3oz8xZvvOZRmKay4xy/giphy.gif',
+        'https://media.giphy.com/media/YRuFixSNWFVcXaxpmX/giphy.gif',
+        'https://media.giphy.com/media/3o7qDEq2bMbcbPRQ2c/giphy.gif',
+        'https://media.giphy.com/media/kyLYXonQYYfwYDIeZl/giphy.gif',
+        'https://media.giphy.com/media/l1J3CbFgn5o7DGRuE/giphy.gif',
+        'https://media.giphy.com/media/TdfyKrN7HGTIY/giphy.gif',
+        'https://media.giphy.com/media/3o7aCRloybJlXpNjSU/giphy.gif',
+        'https://media.giphy.com/media/8lQyyys3SGBoUUxrUp/giphy.gif'
+    ],
+    Gaming: [
+        'https://media.giphy.com/media/l4FGuhL4U2WyjdkaY/giphy.gif',
+        'https://media.giphy.com/media/xTiTnqUxyWbsAXq7Ju/giphy.gif',
+        'https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif',
+        'https://media.giphy.com/media/3og0IPxMM0erATueVW/giphy.gif',
+        'https://media.giphy.com/media/10LKovKon8DENq/giphy.gif',
+        'https://media.giphy.com/media/3o7TKU8RvQuomFfUUU/giphy.gif',
+        'https://media.giphy.com/media/9J7tdYltWyXIY/giphy.gif',
+        'https://media.giphy.com/media/26gssIytJvy1b1THO/giphy.gif'
+    ]
+};
+
 let currentPickerTab = 'stickers';
 
 function togglePicker() {
@@ -4038,6 +5223,7 @@ function togglePicker() {
     if (!picker) return;
     picker.classList.toggle('show');
     if (picker.classList.contains('show')) {
+        applyPickerScale();
         loadPickerContent();
     }
 }
@@ -4053,52 +5239,54 @@ function switchPickerTab(tab, triggerEl) {
 function loadPickerContent() {
     const content = document.getElementById('pickerContent');
     content.innerHTML = '';
+    content.classList.toggle('gifs-mode', currentPickerTab === 'gifs');
+    const dict = getUiDictionary(currentLanguage);
     
     if (currentPickerTab === 'stickers') {
         stickers.forEach(sticker => {
             const item = document.createElement('div');
             item.className = 'sticker-item';
-            item.textContent = sticker;
+            item.innerHTML = `<span class="emoji-glyph">${sticker}</span>`;
             item.onclick = () => sendSticker(sticker);
             content.appendChild(item);
         });
+        applyEnhancedEmoji(content);
     } else if (currentPickerTab === 'gifs') {
-        
-        const gifs = [
-            'https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif',
-            'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
-            'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif',
-            'https://media.giphy.com/media/13CoXDiaCcCoyk/giphy.gif',
-            'https://media.giphy.com/media/3o7527pa7qs9kCG78A/giphy.gif',
-            'https://media.giphy.com/media/XreQmk7ETCak0/giphy.gif',
-            'https://media.giphy.com/media/l0HlNQ03J5JxX6lva/giphy.gif',
-            'https://media.giphy.com/media/26tknCqiJrBQG6bxC/giphy.gif',
-            'https://media.giphy.com/media/BPJmthQ3YRwD6QqcVD/giphy.gif',
-            'https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif',
-            'https://media.giphy.com/media/g9582DNuQppxC/giphy.gif',
-            'https://media.giphy.com/media/VbnUQpnihPSIgIXuZv/giphy.gif',
-            'https://media.giphy.com/media/l3q2K5jinAlChoCLS/giphy.gif',
-            'https://media.giphy.com/media/H3nnOlR7yiCXXQ8e2I/giphy.gif',
-            'https://media.giphy.com/media/LSKVmdIwZFeNEBKBxZ/giphy.gif',
-            'https://media.giphy.com/media/aWPGuTlDqq2yc/giphy.gif',
-            'https://media.giphy.com/media/3oz8xZvvOZRmKay4xy/giphy.gif',
-            'https://media.giphy.com/media/YRuFixSNWFVcXaxpmX/giphy.gif',
-            'https://media.giphy.com/media/3o7qDEq2bMbcbPRQ2c/giphy.gif',
-            'https://media.giphy.com/media/kyLYXonQYYfwYDIeZl/giphy.gif',
-            'https://media.giphy.com/media/l1J3CbFgn5o7DGRuE/giphy.gif',
-            'https://media.giphy.com/media/TdfyKrN7HGTIY/giphy.gif',
-            'https://media.giphy.com/media/3o7aCRloybJlXpNjSU/giphy.gif',
-            'https://media.giphy.com/media/8lQyyys3SGBoUUxrUp/giphy.gif'
-        ];
-        
-        gifs.forEach(gifUrl => {
-            const img = document.createElement('img');
-            img.className = 'gif-item';
-            img.src = gifUrl;
-            img.onclick = () => sendGif(gifUrl);
-            content.appendChild(img);
+        Object.entries(GIF_LIBRARY_BY_CATEGORY).forEach(([category, gifs]) => {
+            const section = document.createElement('div');
+            section.style.display = 'grid';
+            section.style.gap = '10px';
+            section.style.marginBottom = '16px';
+            section.style.gridColumn = '1 / -1';
+
+            const heading = document.createElement('div');
+            heading.textContent = translateRawText(category, dict);
+            heading.style.fontSize = '13px';
+            heading.style.fontWeight = '700';
+            heading.style.color = 'var(--text-secondary)';
+            heading.style.letterSpacing = '0.5px';
+            section.appendChild(heading);
+
+            const grid = document.createElement('div');
+            grid.style.display = 'grid';
+            grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+            grid.style.gap = '12px';
+
+            gifs.forEach(gifUrl => {
+                const img = document.createElement('img');
+                img.className = 'gif-item';
+                img.src = gifUrl;
+                img.loading = 'lazy';
+                img.onclick = () => sendGif(gifUrl);
+                grid.appendChild(img);
+            });
+
+            section.appendChild(grid);
+            content.appendChild(section);
         });
     }
+
+    localizeStaticUi(currentLanguage);
 }
 
 function sendSticker(sticker) {
@@ -5032,25 +6220,48 @@ function createNewGroup() {
             return;
         }
         
+        const normalizedName = groupName.trim();
         customPrompt(
-            'Enter friend IDs to invite (comma-separated):',
+            'Invite member IDs (optional, comma-separated):',
             '📧 Invite Friends',
             'e.g., 123, 456, 789',
             '',
             '📧'
         ).then(memberIds => {
-            if (memberIds === null) {
-                showToast('Group creation cancelled before invites', 'info');
-                return;
+            const inviteIds = String(memberIds || '')
+                .split(',')
+                .map(id => id.trim())
+                .filter(Boolean);
+
+            if (!joinedGroups.includes(normalizedName)) {
+                joinedGroups.push(normalizedName);
+                localStorage.setItem('joinedGroups', JSON.stringify(joinedGroups));
             }
-            if (!memberIds || !memberIds.trim()) {
-                showToast('At least one member is required', 'warning');
-                return;
+
+            const profile = getGroupProfile(normalizedName);
+            if (!profile.icon) {
+                profile.icon = '👥';
+                groupProfiles[normalizedName] = profile;
+                localStorage.setItem('groupProfiles', JSON.stringify(groupProfiles));
             }
-            
-            const ids = memberIds.split(',').map(id => id.trim()).filter(Boolean);
-            showToast(`✅ Group "${groupName}" created with ${ids.length} members!`, 'success');
-            
+
+            if (!groupMemberRoles[normalizedName]) {
+                groupMemberRoles[normalizedName] = {};
+            }
+
+            const ownerId = String(currentUser?.id || 'self');
+            groupMemberRoles[normalizedName][ownerId] = 'Owner';
+            inviteIds.forEach((id) => {
+                const targetId = String(id);
+                if (targetId && !groupMemberRoles[normalizedName][targetId]) {
+                    groupMemberRoles[normalizedName][targetId] = 'Member';
+                }
+            });
+            localStorage.setItem('groupMemberRoles', JSON.stringify(groupMemberRoles));
+
+            loadFriendsForDM();
+            openGroupChat(normalizedName);
+            showToast(`✅ Group "${normalizedName}" created${inviteIds.length ? ` with ${inviteIds.length} invited member(s)` : ''}!`, 'success');
         });
     });
 }
@@ -5258,6 +6469,9 @@ function showUserStats() {
                 <div style="font-size: 24px; color: var(--primary-color); font-weight: bold;">${stats.quizCorrect || 0}</div>
             </div>
         </div>
+        <div style="margin-top: 14px;">
+            <button class="save-btn" onclick="startQuiz();" style="width:100%;">🎯 Events & Challenges</button>
+        </div>
     </div>
     `;
     
@@ -5285,10 +6499,14 @@ function showUserStats() {
 
 function startQuiz() {
     const html = `
-        <div style="display:grid; gap:10px; min-width:280px;">
-            <button class="save-btn" onclick="startTriviaChallenge(); closeCustomDialog();">🧠 Trivia Challenge</button>
-            <button class="secondary-btn" onclick="startSpeedTypingChallenge(); closeCustomDialog();">⌨ Speed Typing</button>
-            <button class="secondary-btn" onclick="startMemoryChallenge(); closeCustomDialog();">🧩 Memory Sequence</button>
+        <div style="display:grid; gap:10px; min-width:300px;">
+            <button class="save-btn" onclick="closeCustomDialog(); setTimeout(() => startTriviaChallenge(), 20);">🧠 Trivia Challenge</button>
+            <button class="secondary-btn" onclick="closeCustomDialog(); setTimeout(() => startSpeedTypingChallenge(), 20);">⌨ Speed Typing</button>
+            <button class="secondary-btn" onclick="closeCustomDialog(); setTimeout(() => startMemoryChallenge(), 20);">🧩 Memory Sequence</button>
+            <button class="secondary-btn" onclick="closeCustomDialog(); setTimeout(() => startMathChallenge(), 20);">🧮 Math Blitz</button>
+            <button class="secondary-btn" onclick="closeCustomDialog(); setTimeout(() => startRiddleChallenge(), 20);">🕵️ Riddle Room</button>
+            <button class="secondary-btn" onclick="closeCustomDialog(); setTimeout(() => startReactionChallenge(), 20);">⚡ Reaction Speed</button>
+            <button class="secondary-btn" onclick="closeCustomDialog(); setTimeout(() => startWordScrambleChallenge(), 20);">🔤 Word Scramble</button>
             <div style="font-size:12px; color:var(--text-secondary);">Complete challenges to earn coins and boost your profile stats.</div>
         </div>
     `;
@@ -5296,74 +6514,292 @@ function startQuiz() {
 }
 
 function startTriviaChallenge() {
-    const quizzes = [
-        { q: 'What year is it?', a: '2026', coins: 50 },
-        { q: 'Can you archive chats?', a: 'yes', coins: 40 },
-        { q: 'Which tab shows your inventory?', a: 'inventory', coins: 60 },
-        { q: 'What button starts a call?', a: 'video', coins: 40 }
+    const rounds = [
+        { q: 'Which keyboard shortcut is commonly used for copy on Windows?', a: ['ctrl+c', 'control+c'] },
+        { q: 'If a message is end-to-end encrypted, who should be able to read it?', a: ['only sender and receiver', 'sender and receiver', 'only the sender and receiver'] },
+        { q: 'What HTTP status code usually means “Not Found”?', a: ['404'] },
+        { q: 'What does DM stand for in chat apps?', a: ['direct message'] },
+        { q: 'Which is safer for account protection: weak password or two-factor authentication?', a: ['two-factor authentication', '2fa'] }
     ];
-    const quiz = quizzes[Math.floor(Math.random() * quizzes.length)];
-    customPrompt(quiz.q, '🧠 Trivia Challenge', 'Your answer...', '', '🧠').then(answer => {
-        if (answer && answer.toLowerCase().trim() === quiz.a.toLowerCase()) {
-            showToast(`✅ Correct! +${quiz.coins} coins`, 'success');
-            updateUserStats('quizCorrect', 1);
-            addCoins(quiz.coins);
+    const picks = rounds.sort(() => Math.random() - 0.5).slice(0, 3);
+    let score = 0;
+    let index = 0;
+
+    const askNext = () => {
+        if (index >= picks.length) {
+            const reward = 15 + (score * 12);
+            addCoins(reward);
+            if (score >= 2) updateUserStats('quizCorrect', 1);
             updateStatsDisplay();
             updateUserProfile();
-        } else if (answer !== null) {
-            showToast(`❌ Wrong! Answer: ${quiz.a}`, 'error');
+            showToast(`🧠 Trivia complete: ${score}/3, +${reward} coins`, score >= 2 ? 'success' : 'warning');
+            return;
         }
-    });
+
+        const round = picks[index];
+        customPrompt(`Question ${index + 1}/3\n\n${round.q}`, '🧠 Trivia Challenge', 'Type your answer...', '', '🧠').then((answer) => {
+            if (answer === null) return;
+            const guess = String(answer).trim().toLowerCase();
+            if (round.a.includes(guess)) score++;
+            index += 1;
+            askNext();
+        });
+    };
+
+    askNext();
 }
 
 function startSpeedTypingChallenge() {
-    const phrase = ['chat faster', 'web rtc sync', 'hello community', 'discord style ui'][Math.floor(Math.random() * 4)];
+    const phrases = [
+        'Ship after testing, not before.',
+        'Fast replies still need clear thinking.',
+        'Reliable chat depends on stable signals.'
+    ];
+    const picks = phrases.sort(() => Math.random() - 0.5).slice(0, 2);
+    let index = 0;
+    let matches = 0;
     const startedAt = Date.now();
-    customPrompt(`Type this exactly:\n\n${phrase}`, '⌨ Speed Typing', phrase, '', '⌨').then((answer) => {
-        if (answer === null) return;
-        const elapsed = (Date.now() - startedAt) / 1000;
-        if (String(answer).trim().toLowerCase() === phrase) {
-            const reward = elapsed <= 8 ? 80 : elapsed <= 15 ? 50 : 30;
-            showToast(`✅ Nice! ${elapsed.toFixed(1)}s, +${reward} coins`, 'success');
+
+    const askNext = () => {
+        if (index >= picks.length) {
+            const elapsed = (Date.now() - startedAt) / 1000;
+            const reward = matches === 2 ? (elapsed <= 16 ? 55 : 45) : matches === 1 ? 28 : 12;
             addCoins(reward);
+            if (matches === 2) updateUserStats('quizCorrect', 1);
             updateStatsDisplay();
             updateUserProfile();
-        } else {
-            showToast('❌ Text mismatch. Try again!', 'warning');
+            showToast(`⌨ Speed Typing: ${matches}/2 clean rounds, +${reward} coins`, matches > 0 ? 'success' : 'warning');
+            return;
         }
-    });
+
+        const phrase = picks[index];
+        customPrompt(`Round ${index + 1}/2\n\nType this exactly:\n\n${phrase}`, '⌨ Speed Typing', 'Type this exactly', '', '⌨').then((answer) => {
+            if (answer === null) return;
+            if (String(answer).trim() === phrase) matches++;
+            index += 1;
+            askNext();
+        });
+    };
+
+    askNext();
 }
 
 function startMemoryChallenge() {
-    const pool = ['🔥', '🎯', '🌟', '🎮', '💎', '⚡'];
-    const seq = [pool[Math.floor(Math.random() * pool.length)], pool[Math.floor(Math.random() * pool.length)], pool[Math.floor(Math.random() * pool.length)]];
-    const expected = seq.join(' ');
-    customAlert(`<div style="font-size:24px; text-align:center; margin:10px 0;">${expected}</div><div style="font-size:12px; color:var(--text-secondary); text-align:center;">Memorize this sequence, then press OK.</div>`, '🧩 Memory Challenge', '🧩').then(() => {
-        customPrompt('Enter the exact emoji sequence separated by spaces', '🧩 Memory Recall', expected, '', '🧩').then((answer) => {
-            if (answer === null) return;
-            if (String(answer).trim() === expected) {
-                showToast('✅ Perfect recall! +70 coins', 'success');
-                addCoins(70);
-                updateStatsDisplay();
-                updateUserProfile();
-            } else {
-                showToast(`❌ Not quite. Correct: ${expected}`, 'warning');
-            }
+    const rounds = [4, 5];
+    const pool = ['🔥', '🧿', '🌊', '⚡', '💎', '🎯', '🌙'];
+    let score = 0;
+    let index = 0;
+
+    const playRound = () => {
+        if (index >= rounds.length) {
+            const reward = 18 + (score * 16);
+            addCoins(reward);
+            if (score === rounds.length) updateUserStats('quizCorrect', 1);
+            updateStatsDisplay();
+            updateUserProfile();
+            showToast(`🧩 Memory run: ${score}/2 rounds, +${reward} coins`, score > 0 ? 'success' : 'warning');
+            return;
+        }
+
+        const seq = Array.from({ length: rounds[index] }, () => pool[Math.floor(Math.random() * pool.length)]);
+        const expected = seq.join(' ');
+        customAlert(`<div style="font-size:24px; text-align:center; margin:10px 0;">${expected}</div><div style="font-size:12px; color:var(--text-secondary); text-align:center;">Round ${index + 1}/2. Memorize the pattern, then press OK.</div>`, '🧩 Memory Challenge', '🧩').then(() => {
+            customPrompt('Enter the sequence exactly', '🧩 Memory Recall', 'Type sequence here', '', '🧩').then((answer) => {
+                if (answer === null) return;
+                if (String(answer).trim() === expected) score++;
+                index += 1;
+                playRound();
+            });
         });
-    });
+    };
+
+    playRound();
 }
 
-function addCoins(amount) {
+async function startMathChallenge() {
+    const ops = ['+', '-', '*'];
+    let score = 0;
+    for (let i = 0; i < 3; i++) {
+        const a = Math.floor(Math.random() * 20) + 5;
+        const b = Math.floor(Math.random() * 11) + 2;
+        const op = ops[Math.floor(Math.random() * ops.length)];
+        const answer = op === '+' ? a + b : op === '-' ? a - b : a * b;
+        const response = await customPrompt(`Problem ${i + 1}/3\n\n${a} ${op} ${b} = ?`, '🧮 Math Blitz', 'Your answer...', '', '🧮');
+        if (response === null) {
+            showToast('Math Blitz cancelled', 'warning');
+            return;
+        }
+        if (Number(String(response).trim()) === answer) score++;
+    }
+    const reward = 20 + (score * 10);
+    addCoins(reward);
+    if (score >= 2) updateUserStats('quizCorrect', 1);
+    updateStatsDisplay();
+    updateUserProfile();
+    showToast(`🧮 Math Blitz: ${score}/3 correct, +${reward} coins`, score >= 2 ? 'success' : 'warning');
+}
+
+async function startRiddleChallenge() {
+    const riddles = [
+        { q: 'I speak without a mouth and hear without ears. What am I?', a: ['echo'] },
+        { q: 'The more you take, the more you leave behind. What am I?', a: ['footsteps', 'steps'] },
+        { q: 'What has keys but cannot open locks?', a: ['piano', 'a piano'] },
+        { q: 'What has to be broken before you can use it?', a: ['egg', 'an egg'] },
+        { q: 'What gets wetter the more it dries?', a: ['towel', 'a towel'] }
+    ];
+    const picks = riddles.sort(() => Math.random() - 0.5).slice(0, 3);
+    let score = 0;
+    for (let i = 0; i < picks.length; i++) {
+        const response = await customPrompt(`Riddle ${i + 1}/3\n\n${picks[i].q}`, '🕵️ Riddle Room', 'Type your answer...', '', '🕵️');
+        if (response === null) {
+            showToast('Riddle challenge cancelled', 'warning');
+            return;
+        }
+        const guess = String(response).trim().toLowerCase();
+        if (picks[i].a.includes(guess)) score++;
+    }
+    const reward = 15 + (score * 12);
+    addCoins(reward);
+    if (score >= 2) updateUserStats('quizCorrect', 1);
+    updateStatsDisplay();
+    updateUserProfile();
+    showToast(`🕵️ Riddle Room: ${score}/3 solved, +${reward} coins`, score >= 2 ? 'success' : 'warning');
+}
+
+function startReactionChallenge() {
+    const backdrop = document.createElement('div');
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:7000;display:flex;align-items:center;justify-content:center;padding:16px;';
+    const panel = document.createElement('div');
+    panel.style.cssText = 'width:min(460px,94vw);background:var(--chat-bg);border:1px solid var(--border-color);border-radius:14px;padding:18px;display:grid;gap:12px;';
+    panel.innerHTML = `
+        <h3 style="margin:0;color:var(--primary-color);">⚡ Reaction Speed</h3>
+        <div style="font-size:13px;color:var(--text-secondary);">Press Start, then tap as soon as the card turns green.</div>
+        <button id="reactionTargetBtn" class="secondary-btn" style="height:130px;font-size:18px;">Wait for green...</button>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button id="reactionStartBtn" class="save-btn">Start</button>
+            <button id="reactionCloseBtn" class="secondary-btn">Close</button>
+        </div>
+    `;
+    backdrop.appendChild(panel);
+    document.body.appendChild(backdrop);
+
+    const targetBtn = panel.querySelector('#reactionTargetBtn');
+    const startBtn = panel.querySelector('#reactionStartBtn');
+    const closeBtn = panel.querySelector('#reactionCloseBtn');
+
+    let active = false;
+    let startedAt = 0;
+    let timer = null;
+
+    const cleanup = () => {
+        if (timer) clearTimeout(timer);
+        backdrop.remove();
+    };
+
+    closeBtn.onclick = cleanup;
+    backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(); };
+
+    startBtn.onclick = () => {
+        startBtn.disabled = true;
+        targetBtn.textContent = 'Get ready...';
+        targetBtn.style.background = 'var(--bg-color)';
+        timer = setTimeout(() => {
+            active = true;
+            startedAt = performance.now();
+            targetBtn.textContent = 'TAP NOW!';
+            targetBtn.style.background = 'var(--success)';
+            targetBtn.style.color = '#fff';
+        }, 1400 + Math.random() * 2800);
+    };
+
+    targetBtn.onclick = () => {
+        if (!startBtn.disabled) return;
+        if (!active) {
+            showToast('Too early! Tap after green.', 'warning');
+            startBtn.disabled = false;
+            targetBtn.textContent = 'Wait for green...';
+            if (timer) clearTimeout(timer);
+            return;
+        }
+        const ms = Math.max(1, Math.round(performance.now() - startedAt));
+        const reward = ms <= 220 ? 85 : ms <= 300 ? 70 : ms <= 380 ? 55 : ms <= 500 ? 38 : 24;
+        addCoins(reward);
+        if (ms <= 380) updateUserStats('quizCorrect', 1);
+        updateStatsDisplay();
+        updateUserProfile();
+        showToast(`⚡ ${ms}ms reaction! +${reward} coins`, 'success');
+        cleanup();
+    };
+}
+
+async function startWordScrambleChallenge() {
+    const rounds = [
+        { word: 'server', scrambled: 'vreser' },
+        { word: 'archive', scrambled: 'vicher a'.replace(' ', '') },
+        { word: 'message', scrambled: 'sgemase' },
+        { word: 'profile', scrambled: 'elofipr' }
+    ];
+    let score = 0;
+    for (let i = 0; i < rounds.length; i++) {
+        const r = rounds[i];
+        const response = await customPrompt(`Round ${i + 1}/4\n\nUnscramble: ${r.scrambled}`, '🔤 Word Scramble', 'Type the word...', '', '🔤');
+        if (response === null) {
+            showToast('Word Scramble cancelled', 'warning');
+            return;
+        }
+        if (String(response).trim().toLowerCase() === r.word) score++;
+    }
+    const reward = 18 + (score * 8);
+    addCoins(reward);
+    if (score >= 3) updateUserStats('quizCorrect', 1);
+    updateStatsDisplay();
+    updateUserProfile();
+    showToast(`🔤 Word Scramble: ${score}/4 correct, +${reward} coins`, score >= 2 ? 'success' : 'warning');
+}
+
+async function addCoins(amount) {
     const userJSON = localStorage.getItem('user');
     if (!userJSON) return;
     const user = JSON.parse(userJSON);
     user.coins = (user.coins || 0) + amount;
     localStorage.setItem('user', JSON.stringify(user));
     currentUser.coins = user.coins;
+    
+    // Update displays immediately
     const coinsDisplay = document.getElementById('coinsDisplay');
     if (coinsDisplay) coinsDisplay.textContent = `💰 Coins: ${user.coins}`;
+    
+    // Sync to server immediately so shop shows correct balance
+    await syncCoinsToServer(user.coins);
+    
+    // Refresh shop if open to show new coin balance
     if (!document.getElementById('shopModal')?.classList.contains('hidden')) {
         loadShopItems();
+    }
+}
+
+async function syncCoinsToServer(coins) {
+    if (!currentToken) return;
+
+    const userId = resolveCurrentUserId();
+    if (userId && !currentUser?.id) {
+        currentUser = { ...(currentUser || {}), id: userId };
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/profile/coins`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ coins })
+        });
+        if (!response.ok) {
+            console.warn('Failed to sync coins to server');
+        }
+    } catch (err) {
+        console.warn('Coin sync error:', err);
     }
 }
 
@@ -5459,13 +6895,13 @@ function closeMobileSidebar() {
 function openQuickActionsMenu() {
     const extraActions = [];
     if (currentChatContext?.type && currentChatContext.type !== 'none') {
-        extraActions.push('<button class="secondary-btn" onclick="clearCurrentChatHistory(); closeCustomDialog();">🧹 Clear Current Chat</button>');
+        extraActions.push('<button class="secondary-btn" onclick="clearCurrentChatHistory(); closeCustomDialog();">🗑️ Clear Current Chat</button>');
         if (currentChatContext.type === 'group') {
-            extraActions.push('<button class="secondary-btn" onclick="openGroupAppearanceEditor(currentChatContext.name); closeCustomDialog();">🎨 Change Group Icon</button>');
-            extraActions.push('<button class="secondary-btn" onclick="changeGroupImagePrompt(currentChatContext.name); closeCustomDialog();">🖼️ Change Group Image</button>');
+            extraActions.push('<button class="secondary-btn" onclick="openGroupAppearanceEditor(currentChatContext.name); closeCustomDialog();">✨ Change Group Icon</button>');
+            extraActions.push('<button class="secondary-btn" onclick="changeGroupImagePrompt(currentChatContext.name); closeCustomDialog();">📸 Change Group Image</button>');
         }
         if (currentChatContext.type === 'community') {
-            extraActions.push('<button class="secondary-btn" onclick="changeCommunityImagePrompt(currentChatContext.name); closeCustomDialog();">🖼️ Change Community Image</button>');
+            extraActions.push('<button class="secondary-btn" onclick="changeCommunityImagePrompt(currentChatContext.name); closeCustomDialog();">📸 Change Community Image</button>');
         }
     }
 
@@ -5473,15 +6909,19 @@ function openQuickActionsMenu() {
         <div style="display:grid; gap:10px; min-width:260px;">
             <button class="secondary-btn" onclick="showQRCodeModal(); closeCustomDialog();">📱 My QR Code</button>
             <button class="save-btn" onclick="openArchivedChatsFromQuickActions();">📦 Archive Center</button>
-            <button class="secondary-btn" onclick="showUserStats(); closeCustomDialog();">📊 Activity Dashboard</button>
-            <button class="secondary-btn" onclick="openMediaPreview(); closeCustomDialog();">🖼️ Saved Media Vault</button>
-            <button class="secondary-btn" onclick="startQuiz(); closeCustomDialog();">🎉 Events & Challenges</button>
+            <button class="secondary-btn" onclick="showUserStats(); closeCustomDialog();">📈 Activity Dashboard</button>
+            <button class="secondary-btn" onclick="openMediaPreview(); closeCustomDialog();">🖼️ Media Gallery</button>
+            <button class="secondary-btn" onclick="closeCustomDialog(); setTimeout(() => startQuiz(), 20);">🚀 Events & Challenges</button>
             ${extraActions.join('')}
-            <button class="secondary-btn" onclick="closeCustomDialog();">✖ Close</button>
+            <button class="secondary-btn" onclick="closeCustomDialog();">❌ Close</button>
             <button class="save-btn" style="background: var(--danger);" onclick="logout(); closeCustomDialog();">🚪 Logout</button>
         </div>
     `;
-    customAlert(html, 'Quick Actions', '📱');
+    customAlert(html, 'Quick Actions', '🧿');
+}
+
+function openFireTechBot() {
+    openDM(FIRETECH_BOT_USER.userId, FIRETECH_BOT_USER.username);
 }
 
 function showQuickActionsMenu() {
@@ -5536,12 +6976,14 @@ function getCommunityProfile(name) {
             ]
         };
         localStorage.setItem('communityProfiles', JSON.stringify(communityProfiles));
-    } else if (synced.name || synced.icon || synced.image) {
+    } else {
+        const local = communityProfiles[name] || {};
         communityProfiles[name] = {
-            ...communityProfiles[name],
-            ...(synced.name ? { name: synced.name } : {}),
-            ...(synced.icon ? { icon: synced.icon } : {}),
-            ...(typeof synced.image === 'string' ? { image: synced.image } : {})
+            ...local,
+            name: local.name || synced.name || name,
+            icon: local.icon || synced.icon || '',
+            image: typeof local.image === 'string' ? local.image : (synced.image || ''),
+            members: Array.isArray(local.members) ? local.members : []
         };
     }
     return communityProfiles[name];
@@ -5557,12 +6999,13 @@ function getGroupProfile(name) {
             image: synced.image || ''
         };
         localStorage.setItem('groupProfiles', JSON.stringify(groupProfiles));
-    } else if (synced.name || synced.icon || synced.image) {
+    } else {
+        const local = groupProfiles[name] || {};
         groupProfiles[name] = {
-            ...groupProfiles[name],
-            ...(synced.name ? { name: synced.name } : {}),
-            ...(synced.icon ? { icon: synced.icon } : {}),
-            ...(typeof synced.image === 'string' ? { image: synced.image } : {})
+            ...local,
+            name: local.name || synced.name || name,
+            icon: local.icon || synced.icon || '👥',
+            image: typeof local.image === 'string' ? local.image : (synced.image || '')
         };
     }
     return groupProfiles[name];
@@ -5582,10 +7025,20 @@ function openCommunityDetails(name) {
     const canManage = roomRole === 'Owner' || roomRole === 'Admin' || localRole === 'leader' || localRole === 'vice_leader';
     const roleLabel = roomRole === 'Admin' ? 'Vice Leader' : (roomRole === 'Owner' ? 'Leader' : (localRole === 'leader' ? 'Leader' : (localRole === 'vice_leader' ? 'Vice Leader' : 'Member')));
 
-    title.textContent = `${profile.icon} ${profile.name}`;
+    title.textContent = `${profile.name}`;
     const members = Array.isArray(profile.members) ? profile.members : [];
+    const avatarPreview = profile.image
+        ? `<div style="width:72px;height:72px;border-radius:16px;background-image:url('${profile.image}');background-size:cover;background-position:center;border:2px solid var(--border-color);"></div>`
+        : `<div style="width:72px;height:72px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:36px;background:var(--bg-color);border:2px solid var(--border-color);">${profile.icon || '🌐'}</div>`;
     body.innerHTML = `
         <div style="display:grid; gap:12px; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:12px; padding:10px; border:1px solid var(--border-color); border-radius:10px; background:var(--bg-color);">
+                ${avatarPreview}
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                    <div style="font-weight:700; font-size:16px;">${profile.name}</div>
+                    <div style="font-size:12px; color:var(--text-secondary);">Community profile preview</div>
+                </div>
+            </div>
             <button class="secondary-btn" onclick="renameCommunityPrompt('${name}')" ${canManage ? '' : 'disabled'}>✏️ Rename Community</button>
             <button class="secondary-btn" onclick="changeCommunityIconPrompt('${name}')" ${canManage ? '' : 'disabled'}>🖼️ Change Icon</button>
             <button class="secondary-btn" onclick="changeCommunityImagePrompt('${name}')" ${canManage ? '' : 'disabled'}>🖼️ Upload Cover Image</button>
@@ -5674,15 +7127,13 @@ function setCommunityIcon(name, icon) {
     }
     const profile = getCommunityProfile(name);
     profile.icon = icon;
+    profile.image = '';
     communityProfiles[name] = profile;
     localStorage.setItem('communityProfiles', JSON.stringify(communityProfiles));
+    cacheRoomProfile('community', name, { icon, image: '' });
     closeCustomDialog();
-    openCommunityDetails(name);
-    if (currentChatContext.type === 'community' && currentChatContext.name === name) {
-        document.getElementById('chatTitle').textContent = `${profile.icon} Community: ${name}`;
-    }
-    emitRoomProfileUpdate('community', name, { icon });
-    loadFriendsForDM(); 
+    emitRoomProfileUpdate('community', name, { icon, image: '' });
+    refreshRoomVisuals('community', name, { reopenDetails: true });
     showToast('Community icon updated! 🎉', 'success');
 }
 
@@ -5713,6 +7164,7 @@ function changeCommunityImagePrompt(name) {
             profile.image = reader.result;
             communityProfiles[name] = profile;
             localStorage.setItem('communityProfiles', JSON.stringify(communityProfiles));
+            cacheRoomProfile('community', name, { image: reader.result });
             
          
             if (currentChatContext?.type === 'community' && currentChatContext?.name === name) {
@@ -5737,7 +7189,7 @@ function changeCommunityImagePrompt(name) {
                 }, 100);
             }
             
-            loadFriendsForDM();
+            refreshRoomVisuals('community', name, { reopenDetails: true });
             emitRoomProfileUpdate('community', name, { image: reader.result });
             showToast('Community image updated (Profile updated)', 'success');
         };
@@ -5764,6 +7216,7 @@ function changeGroupImagePrompt(name) {
             profile.image = reader.result;
             groupProfiles[name] = profile;
             localStorage.setItem('groupProfiles', JSON.stringify(groupProfiles));
+            cacheRoomProfile('group', name, { image: reader.result });
             
             
             if (currentChatContext?.type === 'group' && currentChatContext?.name === name) {
@@ -5788,7 +7241,7 @@ function changeGroupImagePrompt(name) {
                 }, 100);
             }
             
-            loadFriendsForDM();
+            refreshRoomVisuals('group', name, { reopenDetails: true });
             emitRoomProfileUpdate('group', name, { image: reader.result });
             showToast('Group image updated (Profile updated)', 'success');
         };
@@ -5900,15 +7353,60 @@ function showToastClickable(message, type = 'success', chatContext = null) {
     }, 5000);
 }
 
+function openRoomChat(roomType, roomName) {
+    if (roomType === 'community') {
+        openCommunityChat(roomName);
+        return;
+    }
+    if (roomType === 'group') {
+        openGroupChat(roomName);
+    }
+}
 
+// ====== FIRE APP LOADER ======
+function runAppLoader() {
+    const loader = document.getElementById('appLoader');
+    const bar = document.getElementById('loaderBar');
+    const status = document.getElementById('loaderStatus');
+    if (!loader || !bar) return;
+    const messages = ['Igniting...', 'Loading modules...', 'Connecting...', 'Almost ready...', ' Ready!'];
+    let p = 0, msgIdx = 0;
+    const tick = () => {
+        p = Math.min(100, p + Math.random() * 22 + 5);
+        bar.style.width = p + '%';
+        if (status) status.textContent = messages[Math.min(msgIdx, messages.length - 1)];
+        msgIdx++;
+        if (p < 100) {
+            setTimeout(tick, 80 + Math.random() * 110);
+        } else {
+            bar.style.width = '100%';
+            if (status) status.textContent = ' Ready!';
+            setTimeout(() => {
+                loader.classList.add('fade-out');
+                setTimeout(() => { loader.style.display = 'none'; }, 720);
+            }, 350);
+        }
+    };
+    setTimeout(tick, 180);
+}
+// ====== END LOADER ======
 
 window.addEventListener('DOMContentLoaded', () => {
+    runAppLoader();
     loadTheme();
     applySettingsToUI();
     bindCallControlButtons();
-    pinnedChats = JSON.parse(localStorage.getItem('pinnedChats') || '[]');
+    pinnedChats = normalizePinnedChats(JSON.parse(localStorage.getItem('pinnedChats') || '[]'));
+    localStorage.setItem('pinnedChats', JSON.stringify(pinnedChats));
     joinedCommunities = JSON.parse(localStorage.getItem('joinedCommunities') || '[]');
     joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+    const savedLang = preferredLanguage;
+    syncAuthLanguage();
+    localizeStaticUi(currentLanguage);
+    applyEnhancedEmoji(document.body);
+    setPickerScale(pickerScale);
+    ensureLocalizationObserver();
+    if (savedLang && savedLang !== 'en') setTimeout(() => applyLanguage(savedLang, true), 100);
 
     document.getElementById('desktopNotifications')?.addEventListener('change', saveNotificationSettings);
     document.getElementById('messageSound')?.addEventListener('change', saveNotificationSettings);
@@ -5931,7 +7429,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 typingTimeout = setTimeout(() => {
                     socket?.emit('community stop typing', { community: currentChatContext.name, username: currentUser?.username });
                 }, 2000);
-            } else if ((currentChatContext.type === 'group' || currentChatContext.type === 'room') && currentChatContext.id) {
+            } else if (currentChatContext.type === 'group' && currentChatContext.id) {
                 socket?.emit('room typing', { roomType: 'group', roomId: currentChatContext.id, roomName: currentChatContext.name, username: currentUser?.username });
                 clearTimeout(typingTimeout);
                 typingTimeout = setTimeout(() => {
@@ -6925,38 +8423,44 @@ function visitUserProfile(userId, userName = 'User') {
     }
 
     
+    const isOnline = (globalOnlineUsers || []).some((u) => String(u?.id || u?.userId || u?._id || '') === String(userId));
+    const dict = getUiDictionary(currentLanguage);
+    const onlineText = isOnline ? translateRawText('Online', dict) : translateRawText('Offline', dict);
+    const statusColor = isOnline ? 'var(--success)' : 'var(--text-secondary)';
+
     const html = `
         <div style="text-align: center; padding: 20px 0;">
             <div style="width: 100px; height: 100px; background: linear-gradient(135deg, var(--primary-color), #4752c4); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 48px; color: white;">
                 ${userName.charAt(0).toUpperCase()}
             </div>
             <h3 style="margin: 10px 0; color: var(--text-primary);">${userName}</h3>
-            <p style="margin: 5px 0; color: var(--text-secondary); font-size: 13px;">Status: <span style="color: var(--success);">●</span> Online</p>
+            <p style="margin: 5px 0; color: var(--text-secondary); font-size: 13px;">${translateRawText('Status', dict)}: <span style="color: ${statusColor};">●</span> ${onlineText}</p>
             <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                 <button onclick="(function() { 
                     currentChatContext = { id: '${userId}', name: '${userName}', type: 'dm' }; 
                     openDM('${userId}', '${userName}');
                     closeCustomDialog();
                 })()" style="padding: 10px 20px; background: var(--success); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
-                    💬 Send Message
+                    💬 ${translateRawText('Send Message', dict)}
                 </button>
                 <button onclick="(function() { 
                     currentChatContext = { id: '${userId}', name: '${userName}', type: 'dm' }; 
                     closeCustomDialog();
                     setTimeout(() => startVideoCall(), 200);
                 })()" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
-                    📞 Video Call
+                    📞 ${translateRawText('Video Call', dict)}
                 </button>
                 <button onclick="(function() { 
                     sendFriendRequest('${userId}', '${userName}');
                 })()" style="padding: 10px 20px; background: #8e44ad; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s;">
-                    👥 Add Friend
+                    👥 ${translateRawText('Add Friend', dict)}
                 </button>
             </div>
         </div>
     `;
     
     customAlert(html, `👤 ${userName}'s Profile`, '👤');
+    localizeStaticUi(currentLanguage);
 }
 
 function sendFriendRequest(userId, userName = 'User') {

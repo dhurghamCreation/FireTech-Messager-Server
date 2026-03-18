@@ -220,7 +220,7 @@ For users on different internet connections (cellular, other Wi-Fi), **deploy to
    ```
 5. Share the URL (automatic HTTPS included!)
 
-#### ☁️ Option 2: Deploy to Render (Free tier available)
+####  Option 2: Deploy to Render (Free tier available)
 
 1. Create account at https://render.com
 2. Click "New" → "Web Service"

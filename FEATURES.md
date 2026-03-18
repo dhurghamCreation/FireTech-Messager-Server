@@ -1,67 +1,67 @@
 # Discord-Like Chat App - Features
 
-## 🎯 Core Features Implemented
+##  Core Features Implemented
 
 ### 1. User Authentication & Profiles
-- ✅ **Registration System** - Create new account with email/password/username
-- ✅ **Login System** - Persistent login with JWT tokens
-- ✅ **Profile Management** - Edit username, bio, and avatar
-- ✅ **Profile Viewing** - View other users' profiles
-- ✅ **Online Status** - Real-time online/offline status tracking
-- ✅ **Permanent Accounts** - All data saved to MongoDB
+-  **Registration System** - Create new account with email/password/username
+-  **Login System** - Persistent login with JWT tokens
+-  **Profile Management** - Edit username, bio, and avatar
+-  **Profile Viewing** - View other users' profiles
+-  **Online Status** - Real-time online/offline status tracking
+-  **Permanent Accounts** - All data saved to MongoDB
 
 ### 2. Real-Time Messaging
-- ✅ **Text Channels** - #general and more
-- ✅ **Voice Channels** - Voice Chat support
-- ✅ **Real-Time Messages** - Socket.IO powered messaging
-- ✅ **Message History** - Persisted in database
-- ✅ **Typing Indicators** - See who's typing
-- ✅ **Timestamps** - Auto-formatted message times
-- ✅ **Online Members List** - See who's online in sidebar
+- **Text Channels** - #general and more
+-  **Voice Channels** - Voice Chat support
+- **Real-Time Messages** - Socket.IO powered messaging
+-  **Message History** - Persisted in database
+-  **Typing Indicators** - See who's typing
+-  **Timestamps** - Auto-formatted message times
+-  **Online Members List** - See who's online in sidebar
 
 ### 3. Media Sharing
-- ✅ **Image Upload** - Share PNG, JPG, GIF, WebP
-- ✅ **Video Upload** - Share MP4, WebM, etc
-- ✅ **Media Preview** - Inline image/video display
-- ✅ **Max File Size** - 50MB limit
-- ✅ **Base64 Encoding** - Direct message attachment
+-  **Image Upload** - Share PNG, JPG, GIF, WebP
+-  **Video Upload** - Share MP4, WebM, etc
+-  **Media Preview** - Inline image/video display
+-  **Max File Size** - 50MB limit
+-  **Base64 Encoding** - Direct message attachment
 
 ### 4. Friends System
-- ✅ **Add Friends** - Send friend requests
-- ✅ **Friend Requests** - Accept/reject requests
-- ✅ **Friends List** - View all friends with status
-- ✅ **Online Indicators** - Green dot for online
-- ✅ **Persistent Storage** - Friends saved to database
+-  **Add Friends** - Send friend requests
+-  **Friend Requests** - Accept/reject requests
+-  **Friends List** - View all friends with status
+-  **Online Indicators** - Green dot for online
+-  **Persistent Storage** - Friends saved to database
 
 ### 5. Shop & Economy System
-- ✅ **Virtual Currency** - 1000 starting coins
-- ✅ **Shop Items** - Browse purchasable items
-- ✅ **Purchase Items** - Spend coins to buy
-- ✅ **Inventory** - View purchased items
-- ✅ **Item Categories** - Badges, profiles, themes, etc
-- ✅ **Price Display** - Shows cost and balance
+-  **Virtual Currency** - 1000 starting coins
+-  **Shop Items** - Browse purchasable items
+-  **Purchase Items** - Spend coins to buy
+-  **Inventory** - View purchased items
+-  **Item Categories** - Badges, profiles, themes, etc
+-  **Price Display** - Shows cost and balance
 
 ### 6. UI/UX Features
-- ✅ **Discord-Inspired Theme** - Dark mode with purple accents
-- ✅ **Responsive Design** - Works on all devices
-- ✅ **Sidebar Navigation** - Easy channel switching
-- ✅ **Profile Panel** - Slide-in profile editor
-- ✅ **Modal Windows** - Friends and shop modals
-- ✅ **Animations** - Smooth transitions
-- ✅ **Scrollbars** - Custom styled scrollbars
-- ✅ **Mobile Responsive** - Mobile-friendly layout
+-  **Discord-Inspired Theme** - Dark mode with purple accents
+-  **Responsive Design** - Works on all devices
+-  **Sidebar Navigation** - Easy channel switching
+-  **Profile Panel** - Slide-in profile editor
+-  **Modal Windows** - Friends and shop modals
+-  **Animations** - Smooth transitions
+-  **Scrollbars** - Custom styled scrollbars
+-  **Mobile Responsive** - Mobile-friendly layout
 
 ### 7. Backend Architecture
-- ✅ **Express.js Server** - RESTful API
-- ✅ **Socket.IO** - Real-time communication
-- ✅ **MongoDB** - Document database
-- ✅ **Mongoose** - Database ORM
-- ✅ **JWT Authentication** - Secure tokens
-- ✅ **BCrypt** - Password hashing
-- ✅ **CORS** - Cross-origin support
-- ✅ **Environment Variables** - Configuration management
+-  **Express.js Server** - RESTful API
+-  **Socket.IO** - Real-time communication
+-  **MongoDB** - Document database
+-  **Mongoose** - Database ORM
+-  **JWT Authentication** - Secure tokens
+-  **BCrypt** - Password hashing
+-  **CORS** - Cross-origin support
+-  **Environment Variables** - Configuration management
 
-## 📊 Data Models
+##  Data Models
 
 ### User Model
 ```javascript
@@ -131,7 +131,7 @@
 }
 ```
 
-## 🔌 Socket.IO Events
+##  Socket.IO Events
 
 ### Emit (Client → Server)
 - `join` - User joins with authentication
@@ -174,7 +174,7 @@
 - `POST /api/channels` - Create new channel
 - `GET /api/channels` - Get accessible channels
 
-## 🎨 UI Sections
+##  UI Sections
 
 ### 1. Authentication Page
 - Login form with email/password
@@ -242,7 +242,7 @@
 - Request body size limits
 - Rate limiting ready
 
-## 🚀 Performance Optimizations
+##  Performance Optimizations
 
 - Socket.IO namespaces for scalability
 - Message batching in channel history
@@ -251,7 +251,7 @@
 - Efficient database queries with indexes
 - Client-side caching
 
-## 🔄 Workflow Examples
+##  Workflow Examples
 
 ### User Registration
 1. User fills in registration form

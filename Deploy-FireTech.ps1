@@ -1,13 +1,13 @@
-# FireTech Messenger - Arch Linux Auto-Deployer
+
 Write-Host "Starting FireTech Arch Deployment..." -ForegroundColor Cyan
 
-# 1. Install Arch if not present
+
 if (!(wsl -l | Select-String "archlinux")) {
     Write-Host "Installing Arch Linux..." -ForegroundColor Yellow
     wsl --install archlinux
 }
 
-# 2. Run the setup commands inside Arch
+
 Write-Host "Configuring Arch Linux Environment..." -ForegroundColor Yellow
 wsl -d archlinux -u root -- bash -c @"
     # Update and Install

@@ -1,4 +1,4 @@
-# 🚀 Getting Started - Step by Step
+#  Getting Started - Step by Step
 
 ## Prerequisites
 - Node.js (https://nodejs.org/) - Download LTS version
@@ -71,10 +71,10 @@ npm start
 You should see:
 ```
 ╔═══════════════════════════════════════╗
-║   🚀 Discord-Like Server Running     ║
+║   Discord-Like Server Running     ║
 ║                                       ║
-║   📡 Local: http://localhost:3000    ║
-║   ✨ Status: Online & Ready          ║
+║    Local: http://localhost:3000    ║
+║    Status: Online & Ready          ║
 ╚═══════════════════════════════════════╝
 ```
 
@@ -93,7 +93,7 @@ http://localhost:3000
    - Email (e.g., "john@example.com")
    - Password (minimum 6 characters)
 3. Click "Create Account"
-4. You're logged in! 🎉
+4. You're logged in! 
 
 ## Test the Features
 

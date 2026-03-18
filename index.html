@@ -3,14 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord-Like Chat App</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E💬%3C/text%3E%3C/svg%3E">
+    <title>FireTech</title>
+    <link rel="icon" type="image/png" href="images/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        input, textarea {
+            caret-color: var(--primary-color);
         }
 
         :root {
@@ -251,7 +255,168 @@
             margin: 8px 0;
         }
 
-        
+        /* ====== APP LOADER ====== */
+        #appLoader {
+            position: fixed; inset: 0; z-index: 999999;
+            background:
+                radial-gradient(circle at 50% 42%, rgba(92, 126, 255, 0.28) 0%, rgba(92, 126, 255, 0.08) 18%, transparent 36%),
+                radial-gradient(circle at 50% 70%, rgba(10, 18, 40, 0.65) 0%, transparent 40%),
+                linear-gradient(180deg, #07101f 0%, #081423 28%, #0d1730 55%, #04070f 100%);
+            display: flex; align-items: center; justify-content: center; flex-direction: column;
+            transition: opacity 0.7s ease; user-select: none;
+            overflow: hidden;
+        }
+        #appLoader.fade-out { opacity: 0; pointer-events: none; }
+        .loader-scene {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .loader-aura {
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(113, 164, 255, 0.48) 0%, rgba(77, 119, 243, 0.16) 35%, rgba(22, 31, 73, 0) 72%);
+            filter: blur(6px);
+            animation: loaderAuraPulse 2.8s ease-in-out infinite;
+        }
+        .loader-stage-ring {
+            position: absolute;
+            width: 300px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(52, 112, 255, 0.26) 0%, rgba(13, 24, 57, 0.08) 45%, transparent 75%);
+            bottom: 86px;
+            filter: blur(10px);
+        }
+        .loader-fire-emoji {
+            position: relative;
+            font-size: 88px; display: block;
+            animation: loaderFirePulse 1.25s ease-in-out infinite;
+            filter: drop-shadow(0 0 18px rgba(255, 152, 77, 0.95)) drop-shadow(0 0 36px rgba(80, 135, 255, 0.38));
+            z-index: 2;
+        }
+        @keyframes loaderFirePulse {
+            0%, 100% { transform: translateY(0) scale(1) rotate(-3deg); }
+            50% { transform: translateY(-4px) scale(1.16) rotate(3deg); }
+        }
+        @keyframes loaderAuraPulse {
+            0%, 100% { transform: scale(0.94); opacity: 0.72; }
+            50% { transform: scale(1.08); opacity: 1; }
+        }
+        .loader-app-name {
+            font-size: 46px; 
+            font-weight: 900; 
+            letter-spacing: 8px; 
+            text-transform: uppercase;
+            /* Updated to Blue -> Cyan gradient */
+            background: linear-gradient(90deg, #5f7eff 0%, #7b9cff 50%, #9cc4ff 100%);
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            background-clip: text;
+            margin-top: 12px; 
+            line-height: 1;
+        }
+        .loader-tagline {
+            color: rgba(255,255,255,0.35); font-size: 12px; letter-spacing: 4px;
+            text-transform: uppercase; margin-top: 10px; font-weight: 500;
+        }
+        .loader-progress-wrap {
+            width: 280px; height: 5px; background: rgba(255,255,255,0.07);
+            border-radius: 999px; margin-top: 44px; overflow: hidden; position: relative;
+        }
+       .loader-progress-bar {
+            height: 100%; 
+            width: 0%; 
+            border-radius: 999px;
+            /* Matching the logo's deep blue to light blue */
+            background: linear-gradient(90deg, #3470ff, #5f7eff, #9cc4ff);
+            transition: width 0.18s ease; 
+            position: relative;
+            box-shadow: 0 0 10px rgba(95, 126, 255, 0.4);
+        }
+        .loader-progress-bar::after {
+            content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 36px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55));
+            border-radius: 0 999px 999px 0;
+            animation: loaderShimmer 1s ease-in-out infinite;
+        }
+        @keyframes loaderShimmer { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+        .loader-status {
+            margin-top: 16px; font-size: 11px; color: rgba(255,255,255,0.28);
+            letter-spacing: 3px; text-transform: uppercase; min-height: 14px;
+        }
+        /* ====== LANGUAGE PICKER ====== */
+        .lang-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+            max-height: 56vh;
+            overflow-y: auto;
+            padding-right: 4px;
+            width: 100%;
+        }
+        .lang-btn {
+            display: flex; align-items: center; gap: 10px; padding: 11px 12px;
+            background: var(--bg-color); border: 1px solid var(--border-color);
+            border-radius: 12px; cursor: pointer; text-align: left; transition: all 0.18s;
+            min-height: 64px;
+        }
+        .lang-btn:hover {
+            border-color: #ff9d4d;
+            background: linear-gradient(135deg, rgba(255,157,77,0.14), rgba(88,101,242,0.14));
+            transform: translateY(-1px);
+        }
+        .lang-btn.active {
+            border-color: var(--primary-color);
+            background: linear-gradient(135deg, rgba(88,101,242,0.26), rgba(156,196,255,0.16));
+            box-shadow: 0 6px 16px rgba(88, 101, 242, 0.25);
+        }
+        .lang-flag {
+            font-size: 22px;
+            min-width: 38px;
+            width: 38px;
+            height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.25), rgba(88,101,242,0.15));
+            border: 1px solid rgba(255,255,255,0.18);
+        }
+        .lang-info-name { font-size: 13px; font-weight: 700; }
+        .lang-info-country { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+
+        img.twemoji {
+            width: 1.08em;
+            height: 1.08em;
+            vertical-align: -0.14em;
+        }
+
+        #languageSettings {
+            max-width: 100%;
+            width: 100%;
+        }
+        #languageSettings .settings-item {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 900px) {
+            .lang-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .lang-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .channel-sidebar {
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border-color);
@@ -610,7 +775,7 @@
             align-items: center;
         }
 
-        .message:hover .message-actions {
+        .message.message-actions-open .message-actions {
             display: flex;
         }
 
@@ -901,7 +1066,7 @@
             pointer-events: auto;
         }
 
-        /* ==================== PROFILE BANNER ==================== */
+        
         .profile-banner-wrap {
             position: relative;
             width: 100%;
@@ -931,16 +1096,16 @@
         }
         .profile-banner-edit-btn:hover { background: rgba(0,0,0,0.85); }
 
-        /* ==================== CALL OVERLAY ==================== */
+        
         #callOverlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 9999; /* Ensure it's on top of everything */
+            z-index: 9999; 
             display: none;
-            touch-action: manipulation; /* Prevents double-tap zoom delay */
+            touch-action: manipulation; 
             background: rgba(0,0,0,0.55);
         }
         #callOverlay.active {
@@ -1081,7 +1246,7 @@
             word-break: break-word;
         }
 
-        /* ==================== NOTIFICATION PANEL ==================== */
+        
         .notif-bell-btn {
             position: relative;
         }
@@ -1134,7 +1299,7 @@
         .notif-item-body { font-size: 12px; color: var(--text-secondary); }
         .notif-item-time { font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
 
-        /* ==================== UPLOAD SPINNER ==================== */
+       
         .upload-progress-bar {
             height: 3px;
             background: linear-gradient(90deg, var(--primary-color), #4752c4);
@@ -1183,31 +1348,31 @@
             100% { background-position: -200% 0; }
         }
 
-        /* ==================== HOVER EFFECTS ==================== */
+        
         .message { transition: background 0.15s; border-radius: 8px; padding: 4px 6px; }
-        .message:hover { background: rgba(255,255,255,0.04); }
+        .message:hover { background: rgba(88, 101, 242, 0.08); }
         .friend-item { transition: all 0.18s ease; }
-        .friend-item:hover { transform: translateX(3px); box-shadow: -3px 0 0 var(--primary-color); }
+        .friend-item:hover { transform: translateX(3px); box-shadow: -3px 0 0 #ff9d4d; }
         .guild-item { transition: all 0.2s; }
-        .guild-item:hover:not(.active) { border-radius: 16px; background: var(--primary-color); transform: scale(1.05); }
+        .guild-item:hover:not(.active) { border-radius: 16px; background: linear-gradient(135deg, #ff9d4d, #5f7eff); transform: scale(1.08); }
         .header-btn { transition: all 0.18s; }
-        .header-btn:hover { background: rgba(255,255,255,0.12); transform: scale(1.1); border-radius: 6px; }
+        .header-btn:hover { background: rgba(88,101,242,0.25); transform: scale(1.12); border-radius: 6px; box-shadow: 0 2px 8px rgba(88,101,242,0.3); }
         .input-btn { transition: all 0.18s; }
-        .input-btn:hover { background: rgba(88,101,242,0.18); color: var(--primary-color); transform: scale(1.1); }
+        .input-btn:hover { background: linear-gradient(135deg, rgba(255,157,77,0.25), rgba(88,101,242,0.25)); color: #ff9d4d; transform: scale(1.1); box-shadow: 0 2px 8px rgba(255,157,77,0.2); }
         .tab-btn { transition: all 0.18s; }
-        .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.07); }
+        .tab-btn:hover:not(.active) { background: rgba(88,101,242,0.15); transform: translateY(-2px); }
         .secondary-btn { transition: all 0.18s; }
-        .secondary-btn:hover { background: rgba(88,101,242,0.2); transform: translateY(-1px); box-shadow: 0 3px 10px rgba(88,101,242,0.25); }
+        .secondary-btn:hover { background: rgba(88,101,242,0.28); transform: translateY(-2px); box-shadow: 0 4px 14px rgba(88,101,242,0.35); }
         .save-btn { transition: all 0.18s; }
-        .save-btn:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 3px 12px rgba(88,101,242,0.3); }
+        .save-btn:hover { filter: brightness(1.15); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(88,101,242,0.4); }
         .message-action-btn { transition: all 0.18s; }
-        .message-action-btn:hover { background: var(--primary-color) !important; color: white; transform: scale(1.15); }
+        .message-action-btn:hover { background: #ff9d4d !important; color: white; transform: scale(1.2); box-shadow: 0 3px 12px rgba(255,157,77,0.4); }
         .mobile-nav-item { transition: all 0.2s; }
-        .mobile-nav-item:hover, .mobile-nav-item.active { color: var(--primary-color); }
+        .mobile-nav-item:hover, .mobile-nav-item.active { color: #ff9d4d; }
         .settings-nav-item { transition: all 0.15s; }
-        .settings-nav-item:hover { background: rgba(88,101,242,0.15); color: var(--primary-color); }
+        .settings-nav-item:hover { background: linear-gradient(135deg, rgba(255,157,77,0.1), rgba(88,101,242,0.1)); color: #ff9d4d; transform: translateX(2px); }
 
-        /* ==================== GROUPS MODAL ENHANCEMENTS ==================== */
+        
         .groups-search { width: 100%; padding: 10px 14px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 14px; margin-bottom: 12px; }
         .groups-search:focus { outline: none; border-color: var(--primary-color); }
         .group-card {
@@ -1217,10 +1382,18 @@
             border-radius: 10px;
             margin-bottom: 10px;
             border: 1px solid var(--border-color);
-            transition: all 0.2s;
+            transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
         }
         .group-card:hover { border-color: var(--primary-color); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
         .group-avatar { width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, var(--primary-color), #4752c4); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+        .emoji-glyph {
+            font-family: 'Segoe UI Emoji', 'Noto Color Emoji', 'Apple Color Emoji', sans-serif;
+            font-size: 24px;
+            line-height: 1;
+            filter: none !important;
+            color: initial;
+            text-shadow: none;
+        }
         .group-info { flex: 1; min-width: 0; }
         .group-name { font-weight: 700; font-size: 15px; }
         .group-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
@@ -1529,7 +1702,7 @@
             margin-bottom: 16px;
         }
 
-        /* ==================== TOAST NOTIFICATIONS ==================== */
+        
         .toast-container {
             position: fixed;
             top: 20px;
@@ -1605,11 +1778,14 @@
 
         
         .picker-panel {
+            --picker-scale: 1.45;
             position: absolute;
             bottom: 60px;
             left: 50px;
-            width: 350px;
-            height: 400px;
+            width: calc(440px * var(--picker-scale));
+            height: calc(500px * var(--picker-scale));
+            max-width: min(96vw, 900px);
+            max-height: min(82vh, 760px);
             background: var(--chat-bg);
             border-radius: 8px 8px 0 0;
             box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
@@ -1639,6 +1815,38 @@
             border-bottom: 1px solid var(--border-color);
         }
 
+        .picker-size-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .picker-size-btn {
+            min-width: 34px;
+            height: 30px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--secondary-color);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .picker-size-range {
+            width: 120px;
+        }
+
+        .picker-size-label {
+            min-width: 46px;
+            text-align: right;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
         .picker-tab {
             flex: 1;
             padding: 12px;
@@ -1658,30 +1866,40 @@
         .picker-content {
             flex: 1;
             overflow-y: auto;
-            padding: 12px;
+            padding: 14px;
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .picker-content.gifs-mode {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            padding: 18px;
         }
 
         .sticker-item, .gif-item {
-            font-size: 64px;
+            font-size: 58px;
+            font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
             text-align: center;
             cursor: pointer;
-            padding: 8px;
-            border-radius: 4px;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
             transition: all 0.2s;
         }
 
         .sticker-item:hover, .gif-item:hover {
             background: var(--bg-color);
-            transform: scale(1.1);
+            transform: scale(1.06);
         }
 
         .gif-item {
             width: 100%;
-            height: 80px;
+            height: 150px;
             object-fit: cover;
+            border-radius: 12px;
         }
 
         
@@ -1705,14 +1923,14 @@
             width: 100%;
             margin-top: 8px;
             padding: 12px;
-            background: rgba(0, 168, 132, 0.1);
-            border: 2px solid #00a884;
+            background: rgba(88, 101, 242, 0.12);
+            border: 2px solid var(--primary-color);
             border-radius: 8px;
         }
 
         .voice-preview-label {
             font-size: 13px;
-            color: #00a884;
+            color: var(--primary-color);
             margin-bottom: 8px;
             font-weight: 700;
             text-align: center;
@@ -1756,20 +1974,30 @@
        
         .settings-panel {
             position: fixed;
-            top: 0;
-            right: -400px;
-            width: 400px;
-            height: 100%;
-            background: var(--chat-bg);
-            box-shadow: -4px 0 20px rgba(0,0,0,0.3);
-            transition: right 0.3s ease;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.96);
+            width: min(920px, calc(100vw - 36px));
+            max-width: 920px;
+            height: min(82vh, 760px);
+            background: linear-gradient(180deg, rgba(35, 40, 74, 0.98) 0%, rgba(22, 25, 48, 0.98) 100%);
+            border: 1px solid rgba(111, 146, 255, 0.16);
+            border-radius: 22px;
+            box-shadow: 0 30px 90px rgba(0,0,0,0.48), 0 0 0 1px rgba(255,255,255,0.03) inset;
+            transition: opacity 0.28s ease, transform 0.28s ease;
             z-index: 2500;
             display: flex;
             flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+            backdrop-filter: blur(18px);
         }
 
         .settings-panel.show {
-            right: 0;
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
         }
 
         .settings-header {
@@ -2256,7 +2484,8 @@
                 width: 100%;
                 left: 0;
                 bottom: 0;
-                height: 50vh;
+                height: 68vh;
+                max-height: 68vh;
                 border-radius: 16px 16px 0 0;
             }
 
@@ -2275,11 +2504,16 @@
             
             .settings-panel {
                 width: 100%;
-                right: -100%;
+                max-width: none;
+                height: 100%;
+                top: 0;
+                left: 0;
+                border-radius: 0;
+                transform: translateY(18px);
             }
 
             .settings-panel.show {
-                right: 0;
+                transform: translateY(0);
             }
 
             .settings-body {
@@ -2403,6 +2637,22 @@
             gap: 12px;
             justify-content: flex-end;
         }
+        .loader-logo {
+            position: relative;
+            width: 110px;
+            height: auto;
+            z-index: 10;
+            /* This creates a layered glow: one sharp blue, one soft cyan */
+            filter: 
+                drop-shadow(0 0 10px rgba(95, 126, 255, 0.8)) 
+                drop-shadow(0 0 30px rgba(156, 196, 255, 0.4));
+            
+            /* Applying three animations at once: float, flicker, and subtle rotate */
+            animation: 
+                fireFloat 3s ease-in-out infinite,
+                fireFlicker 1.5s infinite alternate,
+                fireIgnite 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
 
         .custom-dialog-btn {
             padding: 12px 24px;
@@ -2413,6 +2663,25 @@
             cursor: pointer;
             transition: all 0.2s;
             min-width: 100px;
+        }
+        /* 1. Makes the flame float up and down gently */
+        @keyframes fireFloat {
+            0%, 100% { transform: translateY(0) rotate(-1deg); }
+            50% { transform: translateY(-12px) rotate(1deg); }
+        }
+
+        /* 2. Simulates the flickering intensity of fire */
+        @keyframes fireFlicker {
+            0%, 100% { opacity: 1; filter: brightness(1) drop-shadow(0 0 10px rgba(95, 126, 255, 0.8)); }
+            25% { opacity: 0.95; filter: brightness(1.2) drop-shadow(0 0 15px rgba(95, 126, 255, 1)); }
+            50% { opacity: 1; filter: brightness(0.9); }
+            75% { opacity: 0.98; filter: brightness(1.1) drop-shadow(0 0 12px rgba(156, 196, 255, 0.9)); }
+        }
+
+        /* 3. The "Pop Up" effect when the page first loads */
+        @keyframes fireIgnite {
+            0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
 
         .custom-dialog-btn-primary {
@@ -3021,7 +3290,21 @@
     </style>
 </head>
 <body>
-    
+    <!-- ====== FIRE APP LOADER ====== -->
+    <div id="appLoader">
+        <div class="loader-scene">
+            <div class="loader-aura"></div>
+            <div class="loader-stage-ring"></div>
+            <img src="images/logo.png" alt="App Logo" class="loader-logo">
+        </div>
+        <div class="loader-app-name">FireTech</div>
+        <div class="loader-tagline">Secure your conversations. Trust the fire.</div>
+        <div class="loader-progress-wrap">
+            <div class="loader-progress-bar" id="loaderBar"></div>
+        </div>
+        <div class="loader-status" id="loaderStatus">Igniting...</div>
+    </div>
+
     <div class="auth-container" id="authContainer">
         <div class="auth-box">
             <h2 id="authTitle">Login</h2>
@@ -3077,6 +3360,9 @@
                 <i class="fas fa-store"></i>
             </div>
             <div class="guild-divider"></div>
+            <div class="guild-item" onclick="openFireTechBot()" title="FireTech Security Bot" style="background: linear-gradient(135deg, #ff9d4d, #5f7eff); font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;">
+                ⚡
+            </div>
             <div class="guild-item" onclick="showArchivedMessages()" title="Archived Messages">
                 <i class="fas fa-archive"></i>
             </div>
@@ -3123,7 +3409,7 @@
                     <div class="chat-header-title" id="chatTitle">💬 Select a friend to chat</div>
                 </div>
                 <div class="chat-header-actions">
-                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v2.9.0</span>
+                    <span class="build-badge mobile-essential" id="buildVersionBadge" title="Frontend build version">v3.2.8</span>
                     <button class="header-btn mobile-essential" onclick="toggleArchiveChat()" title="Archive chat">
                         <i class="fas fa-archive"></i>
                     </button>
@@ -3141,9 +3427,6 @@
                     </button>
                     <button class="header-btn mobile-essential" onclick="toggleMobileMembers()" title="View members">
                         <i class="fas fa-users"></i>
-                    </button>
-                    <button class="header-btn mobile-essential" onclick="openQuickActionsMenu()" title="More options">
-                        <i class="fas fa-ellipsis-v"></i>
                     </button>
                     <button class="header-btn mobile-essential" onclick="openSettings()" title="Settings">
                         <i class="fas fa-cog"></i>
@@ -3303,7 +3586,7 @@
     <div class="modal hidden" id="shopModal">
         <div class="modal-content">
             <h2><i class="fas fa-store"></i> Shop</h2>
-            <div class="coins-display" id="coinsDisplay">💰 Coins: 1000</div>
+            <div class="coins-display" id="coinsDisplay">💰 Coins: ...</div>
             <div id="shopList"></div>
             <button class="save-btn" onclick="closeShopModal()" style="margin-top: 20px;">Close</button>
         </div>
@@ -3329,6 +3612,12 @@
         <div class="picker-tabs">
             <button class="picker-tab active" onclick="switchPickerTab('stickers', this)">😀 Stickers</button>
             <button class="picker-tab" onclick="switchPickerTab('gifs', this)">🎬 GIFs</button>
+        </div>
+        <div class="picker-size-controls">
+            <button class="picker-size-btn" onclick="adjustPickerSize(-0.1)" title="Smaller picker">A-</button>
+            <input id="pickerSizeRange" class="picker-size-range" type="range" min="1" max="2" step="0.05" value="1.45" oninput="setPickerScale(this.value)">
+            <button class="picker-size-btn" onclick="adjustPickerSize(0.1)" title="Larger picker">A+</button>
+            <span id="pickerSizeLabel" class="picker-size-label">145%</span>
         </div>
         <div class="picker-content" id="pickerContent">
             
@@ -3359,12 +3648,13 @@
         </div>
         <div class="settings-body">
             <div class="settings-nav">
-                <div class="settings-nav-item active" onclick="switchSettingsTab('account', this)">👤 Account</div>
-                <div class="settings-nav-item" onclick="switchSettingsTab('privacy', this)">🔒 Privacy</div>
-                <div class="settings-nav-item" onclick="switchSettingsTab('chat', this)">💬 Chat</div>
-                <div class="settings-nav-item" onclick="switchSettingsTab('notifications', this)">🔔 Notifications</div>
-                <div class="settings-nav-item" onclick="switchSettingsTab('appearance', this)">🎨 Appearance</div>
-                <div class="settings-nav-item" onclick="switchSettingsTab('stats', this)">📊 Statistics</div>
+                <div class="settings-nav-item active" onclick="switchSettingsTab('account', this)">🪪 Account</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('privacy', this)">🛡️ Privacy</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('chat', this)">🗨️ Chat</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('notifications', this)">📬 Notifications</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('appearance', this)">🪄 Appearance</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('language', this)">🧭 Language</div>
+                <div class="settings-nav-item" onclick="switchSettingsTab('stats', this)">📈 Statistics</div>
             </div>
             <div class="settings-content">
                
@@ -3592,16 +3882,33 @@
                         <button class="save-btn" onclick="resetUserStats()" style="width: 100%;">Reset Statistics</button>
                     </div>
                     <div class="settings-item">
-                        <button class="primary-btn" onclick="startQuiz()" style="width: 100%; padding: 12px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;">🎯 Take a Quiz Question</button>
+                        <button class="primary-btn" onclick="startQuiz()" style="width: 100%; padding: 12px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;">🎯 Events & Challenges</button>
                     </div>
                 </div>
             </div>
+
+            <!-- Language Settings -->
+            <div class="settings-section" id="languageSettings">
+                <h3>🌐 Language</h3>
+                <div class="settings-item">
+                    <label class="settings-label">App Language</label>
+                    <p style="font-size:13px; color:var(--text-secondary); margin:0 0 14px;">Choose your preferred language. UI text will update immediately.</p>
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px; padding:10px 14px; background:var(--bg-color); border-radius:10px; border:1px solid var(--border-color);">
+                        <span style="font-size:20px;">🌐</span>
+                        <span style="font-size:14px; font-weight:600;">Current:</span>
+                        <span id="currentLangDisplay" style="font-size:14px; font-weight:700; color:var(--primary-color);">🇺🇸 English</span>
+                    </div>
+                    <div class="lang-grid" id="langGrid"></div>
+                </div>
+            </div>
+
         </div>
     </div>
+</div>
 
     
     <div class="modal hidden" id="communitiesModal">
-        <div class="modal-content" style="max-width:600px; max-height:80vh; overflow-y:auto;">
+        <div class="modal-content" style="max-width:min(96vw, 760px); width:min(96vw, 760px); max-height:86vh; overflow-y:auto;">
             <h2><i class="fas fa-globe"></i> Communities</h2>
             <p style="margin-top: 10px; color: var(--text-secondary);">Join public communities to discover people with shared interests.</p>
             <input class="groups-search" placeholder="🔍 Search communities..." oninput="filterCommunitiesList(this.value)">
@@ -3612,7 +3919,7 @@
 
    
     <div class="modal hidden" id="groupsModal">
-        <div class="modal-content" style="max-width:600px; max-height:80vh; overflow-y:auto;">
+        <div class="modal-content" style="max-width:min(96vw, 760px); width:min(96vw, 760px); max-height:86vh; overflow-y:auto;">
             <h2><i class="fas fa-user-group"></i> Groups</h2>
             <p style="margin-top: 10px; color: var(--text-secondary);">Create and manage your own small group chats.</p>
             <button class="create-group-btn" onclick="createNewGroup(); closeGroupsModal();" style="margin-top:14px;">➕ Create New Group</button>
@@ -3702,7 +4009,7 @@
     
     <div id="customDialog" style="display: none;"></div>
 
-    <!-- ========== FULL-SCREEN CALL OVERLAY ========== -->
+    
     <div id="callOverlay">
         <div class="call-overlay-stage">
             <div id="hostedCallContainer"></div>
@@ -3728,7 +4035,7 @@
         </div>
     </div>
 
-    <!-- ========== NOTIFICATION PANEL ========== -->
+  
     <div id="notifPanel">
         <div class="notif-panel-header">
             <span style="font-weight:700; font-size:16px;">🔔 Notifications</span>
@@ -3745,7 +4052,8 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://meet.jit.si/external_api.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="client.js?v=2.9.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
+    <script src="client.js?v=3.2.8"></script>
 </body>
 </html>
 

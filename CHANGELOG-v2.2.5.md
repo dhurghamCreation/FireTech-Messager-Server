@@ -1,20 +1,20 @@
 # Changelog - Version 2.2.5
 
-## 🎉 Major Mobile UI Overhaul
+##  Major Mobile UI Overhaul
 
 ### Mobile WhatsApp/Telegram-Style Layout
 - **Bottom Navigation Bar**: Added a modern bottom nav bar for mobile devices with 5 key sections:
-  - 💬 Chats
-  - 🌐 Communities
-  - 👥 Groups
-  - 👤 Friends
-  - ⚙️ Settings
+  -  Chats
+  -  Communities
+  -  Groups
+  -  Friends
+  -  Settings
 - **Full-Screen Chat Area**: Mobile phones now show chat in full screen with all controls accessible
 - **Responsive Sidebar**: Sidebars slide in from left with overlay backdrop on mobile
 - **Touch-Optimized**: All buttons and controls properly sized for mobile interaction
 - **No More Hidden Controls**: All features (messages, communities, left panel options) now visible on phone
 
-## 📞 Call Stability Improvements
+##  Call Stability Improvements
 
 ### TURN Server Integration
 - **Added Public TURN Servers**: Integrated openrelay.metered.ca TURN servers for better NAT traversal
@@ -32,7 +32,7 @@
 - **Reconnection Logic**: Automatic reconnection attempts during brief disconnects
 - **Better Error Messages**: Clear feedback when calls fail vs. temporary network issues
 
-## 📌 Pinned Chats Feature
+##  Pinned Chats Feature
 
 ### Pin Your Important Conversations
 - **Pin/Unpin Button**: New thumbtack button in chat header to pin/unpin current chat
@@ -40,11 +40,11 @@
   - Pinned chats show with colored background
   - Blue left border on pinned items
   - Thumbtack icon beside pinned chat name
-- **Pinned Section**: Separate "📌 PINNED" section at top of chat list
+- **Pinned Section**: Separate " PINNED" section at top of chat list
 - **Persistent**: Pins saved to localStorage and survive app restarts
 - **Works For All Chat Types**: Pin DMs, communities, and groups
 
-## 🔔 Clickable Notifications
+##  Clickable Notifications
 
 ### Navigate Directly from Notifications
 - **Click to Open Chat**: Tap any notification to jump directly to that conversation
@@ -58,7 +58,7 @@
 - **Community Notifications**: "New message in Community '[name]' from [user]: [preview]"
 - **Group Notifications**: "New message in Group '[name]' from [user]: [preview]"
 
-## 🎨 Horizontal Reactions Layout
+## Horizontal Reactions Layout
 
 ### Better Reaction Display
 - **Horizontal Alignment**: Reactions now flow left-to-right instead of stacking vertically
@@ -66,7 +66,7 @@
 - **Better Spacing**: 6px gap between reaction items for cleaner look
 - **Touch-Friendly**: Larger tap targets on mobile devices
 
-## 🎭 Community Roles System (Basic)
+##  Community Roles System (Basic)
 
 ### Role Foundation
 - **Leader Role**: Community creator/admin designation (future backend support)
@@ -79,7 +79,7 @@
 
 *Note: Full role system requires backend implementation - this version provides the UI foundation*
 
-## 🎨 Enhanced UI & Navigation
+##  Enhanced UI & Navigation
 
 ### Visual Improvements
 - **Smoother Transitions**: Better animations for sidebar open/close
@@ -94,7 +94,7 @@
 - **Breadcrumb-Style Headers**: Chat headers now clearly show the context
 - **Faster Chat Switching**: Optimized chat loading and switching performance
 
-## 🐛 Bug Fixes
+##  Bug Fixes
 
 ### Mobile Fixes
 - Fixed: Messages container now properly scrollable on all mobile devices
@@ -123,18 +123,18 @@
 - **Cache Buster**: Updated to prevent old JS/CSS caching
 
 ### Browser Compatibility
-- ✅ Chrome/Edge (Desktop & Mobile)
-- ✅ Firefox (Desktop & Mobile)
-- ✅ Safari/iOS Safari
-- ✅ Samsung Internet
-- ✅ Opera Mobile
+- Chrome/Edge (Desktop & Mobile)
+- Firefox (Desktop & Mobile)
+-  Safari/iOS Safari
+- Samsung Internet
+- Opera Mobile
 
 ### Mobile Breakpoints
 - **< 480px**: Full mobile mode with bottom nav
 - **480-768px**: Tablet mode with collapsible sidebar
 - **> 768px**: Desktop mode with persistent sidebars
 
-## 🚀 Deployment Notes
+## Deployment Notes
 
 ### Update Steps
 1. ` git pull` or download latest code
@@ -146,7 +146,7 @@
 - Previous stable: v2.2.4
 - To rollback: `git checkout v2.2.4` or restore backup
 
-## 📝 Known Limitations
+## Known Limitations
 
 ### Current Version
 - Community roles are UI-only (backend integration pending)
@@ -164,7 +164,7 @@
 - Advanced role permissions (kick, mute, ban)
 - Community settings panel in UI
 
-## 🙏 Testing Recommendations
+## Testing Recommendations
 
 ### Critical Tests
 1. **Mobile Layout**: Open on actual phone, verify all buttons visible
@@ -179,7 +179,7 @@
 - Test video calls both on same WiFi and across networks
 - Test notifications on both locked and unlocked screens
 
-## 📞 Support
+## Support
 
 If you encounter issues:
 1. Check browser console for errors (F12)
@@ -190,4 +190,4 @@ If you encounter issues:
 
 ---
 
-**Enjoy the new mobile-friendly experience! 📱✨**
+**Enjoy the new mobile-friendly experience! **

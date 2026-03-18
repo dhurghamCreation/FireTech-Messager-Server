@@ -2,41 +2,41 @@
 
 A comprehensive real-time chat application with Discord-like features including user profiles, friends system, shop, voice channels, and media sharing.
 
-## ✨ Features
+##  Features
 
 ### User Management
-- ✅ User registration and login with email/password
-- ✅ JWT-based authentication  
-- ✅ Editable user profiles with bio and avatar
-- ✅ Persistent accounts saved in MongoDB
+-  User registration and login with email/password
+-  JWT-based authentication  
+-  Editable user profiles with bio and avatar
+-  Persistent accounts saved in MongoDB
 
 ### Chat & Messaging
-- ✅ Real-time messaging with Socket.IO
-- ✅ Text channels and voice channel support
-- ✅ Typing indicators
-- ✅ Media sharing (photos & videos)
-- ✅ Message history
+-  Real-time messaging with Socket.IO
+-  Text channels and voice channel support
+-  Typing indicators
+-  Media sharing (photos & videos)
+-  Message history
 
 ### Social Features
-- ✅ Friends list system
-- ✅ Friend requests with accept/reject
-- ✅ Online status tracking
-- ✅ Member list with online indicators
+-  Friends list system
+-  Friend requests with accept/reject
+-  Online status tracking
+-  Member list with online indicators
 
 ### Shop & Economy
-- ✅ In-game shop with purchasable items
-- ✅ Coin currency system (1000 starting coins)
-- ✅ User inventory
-- ✅ Purchase tracking
+-  In-game shop with purchasable items
+-  Coin currency system (1000 starting coins)
+-  User inventory
+-  Purchase tracking
 
 ### UI/UX
-- ✅ Discord-inspired dark theme
-- ✅ Responsive design (desktop, tablet, mobile)
-- ✅ Channel sidebar with quick access
-- ✅ Member sidebar
-- ✅ Profile panel
+-  Discord-inspired dark theme
+-  Responsive design (desktop, tablet, mobile)
+-  Channel sidebar with quick access
+-  Member sidebar
+-  Profile panel
 
-## 🚀 Installation & Setup
+##  Installation & Setup
 
 ### Prerequisites
 - Node.js (v14 or higher)
@@ -86,7 +86,7 @@ npm run dev
 
 The server will start at `http://localhost:3000`
 
-## 📖 How to Use
+##  How to Use
 
 ### 1. Create Account
 - Click "Register"
@@ -124,7 +124,7 @@ The server will start at `http://localhost:3000`
 - Click "Buy" to purchase items (uses coins)
 - Check inventory in your profile
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 message-app/
@@ -137,7 +137,7 @@ message-app/
 └── README.md              # This file
 ```
 
-## 🔧 API Endpoints
+##  API Endpoints
 
 ### Authentication
 - `POST /api/register` - Register new user
@@ -200,14 +200,14 @@ Default port is 3000. Change in `.env`:
 PORT=8080
 ```
 
-## 📱 Mobile Support
+##  Mobile Support
 
 The app is fully responsive and works on:
 - Desktop (Chrome, Firefox, Safari, Edge)
 - Tablet (iPad, Android tablets)
 - Mobile phones (iOS, Android)
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### "Cannot connect to MongoDB"
 - Make sure MongoDB is running (`mongod` command)
@@ -228,7 +228,7 @@ The app is fully responsive and works on:
 - Verify file type (images/videos only)
 - Check browser console for errors
 
-## 📝 Default Shop Items
+##  Default Shop Items
 
 The shop comes with these starting items (add more by modifying server.js):
 - Discord Nitro Badge - 500 coins
@@ -236,21 +236,21 @@ The shop comes with these starting items (add more by modifying server.js):
 - Custom Status - 200 coins
 - Emote Pack - 250 coins
 
-## 🔐 Security Notes
+##  Security Notes
 
 1. Change `JWT_SECRET` in production
 2. Use strong MongoDB passwords
 3. Enable HTTPS in production (use `setup-https.ps1`)
 4. Keep dependencies updated with `npm update`
 
-## 📞 Support
+##  Support
 
 For issues or questions:
 1. Check the troubleshooting section
 2. Review server console for errors
 3. Check browser console (F12) for client errors
 
-## 🎯 Future Enhancements
+##  Future Enhancements
 
 - [ ] Direct messaging (DMs)
 - [ ] Message reactions with emojis
@@ -265,4 +265,4 @@ For issues or questions:
 
 ---
 
-**Made with ❤️ using Node.js, Express, Socket.IO, and MongoDB**
+**Made with  using Node.js, Express, Socket.IO, and MongoDB**

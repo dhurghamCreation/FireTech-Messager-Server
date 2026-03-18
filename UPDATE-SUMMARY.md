@@ -4,11 +4,11 @@
 
 Your Discord-like chat application has been completely updated with the following improvements:
 
-1. ✅ **DM-Only Messaging** - Removed public channels, replaced with friend-based direct messaging
-2. ✅ **Profile Image Upload** - Users can now upload and customize profile pictures
-3. ✅ **Improved Scrolling** - Added smooth scrolling, better scrollbars, and mobile optimization
-4. ✅ **Railway Deployment Guide** - Complete guide to deploy your app for free
-5. ✅ **Phone Testing Guide** - Instructions for testing on mobile devices
+1. **DM-Only Messaging** - Removed public channels, replaced with friend-based direct messaging
+2.  **Profile Image Upload** - Users can now upload and customize profile pictures
+3.  **Improved Scrolling** - Added smooth scrolling, better scrollbars, and mobile optimization
+4.  **Railway Deployment Guide** - Complete guide to deploy your app for free
+5.  **Phone Testing Guide** - Instructions for testing on mobile devices
 
 ## What Changed
 
