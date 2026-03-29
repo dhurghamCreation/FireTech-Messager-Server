@@ -1,4 +1,4 @@
-# 📱 Complete Guide to Connect from Mobile Phone
+#  Complete Guide to Connect from Mobile Phone
 
 ## Step 1: Check Your Phone's Network
 
@@ -12,7 +12,7 @@
 2. Look at which Wi-Fi network you're connected to
 3. **Make sure it's the EXACT SAME Wi-Fi as your phone**
 
-⚠️ **IMPORTANT:** If they're on different Wi-Fi networks, connect your phone to the **same Wi-Fi** as your PC first!
+ **IMPORTANT:** If they're on different Wi-Fi networks, connect your phone to the **same Wi-Fi** as your PC first!
 
 ---
 
