@@ -108,10 +108,18 @@ app.get('/api/rtc-config', (req, res) => {
   });
 });
 
-const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/discord-app';
-const isLocalConnection = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+const isProduction = process.env.NODE_ENV === 'production';
+const connectionString = process.env.DATABASE_URL;
 
-const sequelize = new Sequelize(connectionString, {
+if (isProduction && !connectionString) {
+  console.error('Missing DATABASE_URL in production. Add it in Render Environment settings or via render.yaml fromDatabase binding.');
+  process.exit(1);
+}
+
+const resolvedConnectionString = connectionString || 'postgres://postgres:postgres@localhost:5432/discord-app';
+const isLocalConnection = resolvedConnectionString.includes('localhost') || resolvedConnectionString.includes('127.0.0.1');
+
+const sequelize = new Sequelize(resolvedConnectionString, {
   dialect: 'postgres',
   logging: false,
   protocol: 'postgres',

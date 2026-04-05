@@ -1,3 +1,7 @@
+databases:
+  - name: ultimate-chat-db
+    plan: free
+
 services:
   - type: web
     name: ultimate-chat-app
@@ -9,3 +13,11 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ultimate-chat-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: "*"
