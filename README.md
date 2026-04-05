@@ -197,7 +197,7 @@ For users on different internet connections (cellular, other Wi-Fi), **deploy to
 | Option | Difficulty | Cost | HTTPS | Best For |
 |--------|-----------|------|-------|----------|
 | Railway |  Easy | Free tier |  Auto | Quick deployment, beginners |
-| Render |  Easy | Free tier |  Auto | Static projects, free hosting |
+| Render |  Easy | Free tier |  Auto | Node + WebSocket apps with simple setup |
 | Self-host (DuckDNS+Caddy) |  Hard | Free |  Auto | Learning, full control |
 
 ####  Option 1: Deploy to Railway (Easiest - Free HTTPS + Domain)
@@ -220,15 +220,35 @@ For users on different internet connections (cellular, other Wi-Fi), **deploy to
    ```
 5. Share the URL (automatic HTTPS included!)
 
-####  Option 2: Deploy to Render (Free tier available)
+####  Option 2: Deploy to Render (recommended)
 
-1. Create account at https://render.com
-2. Click "New" → "Web Service"
-3. Connect your GitHub repo (or upload via dashboard)
-4. Set:
+This app is already compatible with Render because it uses a dynamic port (`process.env.PORT`) and Socket.IO over a Node web service.
+
+1. Push your latest code to GitHub.
+2. Go to https://render.com and sign in with GitHub.
+3. Click **New +** → **Web Service**.
+4. Choose **Build and deploy from a Git repository** and select this repo.
+5. Configure service settings:
+   - **Runtime:** `Node`
    - **Build Command:** `npm install`
    - **Start Command:** `npm start`
-5. Deploy and get free `.onrender.com` HTTPS URL
+   - **Plan:** `Free`
+   - **Region:** nearest to your users
+6. Add environment variables from your local `.env` file (never commit secrets):
+   - `DATABASE_URL`
+   - `JWT_SECRET`
+   - `CORS_ORIGIN` (set to your frontend URL or `*` for quick testing)
+   - Optional TURN variables for WebRTC: `TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL`
+7. Click **Create Web Service** and wait for build logs to finish.
+8. Open your live URL: `https://<your-service>.onrender.com`
+9. Validate health endpoint in browser:
+   - `https://<your-service>.onrender.com/api/version`
+10. Test real-time chat from 2 browser tabs/devices.
+
+Notes for Render Free tier:
+- Free services sleep after inactivity; first wake-up request can take around 30-60 seconds.
+- This app uses PostgreSQL via `DATABASE_URL`, so chat/account data is persisted in DB, not only in memory.
+- Do not set `PORT` manually on Render; Render injects it automatically.
 
 ####  Option 3: Self-host with proper domain (Advanced)
 
