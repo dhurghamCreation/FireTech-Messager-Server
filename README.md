@@ -474,15 +474,6 @@ This project is open source and available for personal and commercial use.
 
 Created by Dhurgham Alsaadi using modern web technologies.
 
-##  GenAI Usage Disclosure
-
-GenAI assistance was used for selected coding tasks. In-code disclosure comments are included in:
-- `server.js`
-- `client.js`
-- `index.html`
-
-Prompt summaries used are documented in those file comments as required.
-
 ---
 
 **Enjoy chatting!**
