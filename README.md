@@ -34,6 +34,7 @@ A modern, feature-rich real-time chat application built with Socket.IO, Express,
 ### Prerequisites
 - Node.js (v14 or higher)
 - npm or yarn
+- PostgreSQL (local) or managed PostgreSQL (Render/Railway/Neon/Supabase)
 
 ### Installation
 
@@ -60,6 +61,77 @@ npm run dev
 4. Open your browser and navigate to:
 ```
 http://localhost:3000
+```
+
+## Reproducible Setup (Ubuntu Server / Raspberry Pi)
+
+This section is intended for assignment reproducibility requirements.
+
+### 1) Install system packages
+
+```bash
+sudo apt update
+sudo apt install -y curl git ca-certificates postgresql postgresql-contrib
+```
+
+### 2) Install Node.js LTS
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v
+npm -v
+```
+
+### 3) Clone repository
+
+```bash
+git clone https://github.com/dhurghamCreation/FireTech-Messager-Server.git
+cd FireTech-Messager-Server
+```
+
+### 4) Create PostgreSQL database/user
+
+```bash
+sudo -u postgres psql -c "CREATE USER firetech WITH PASSWORD 'change_this_password';"
+sudo -u postgres psql -c "CREATE DATABASE firetech_db OWNER firetech;"
+```
+
+### 5) Configure environment variables
+
+Create `.env`:
+
+```env
+PORT=3000
+HOST=0.0.0.0
+NODE_ENV=production
+DATABASE_URL=postgres://firetech:change_this_password@localhost:5432/firetech_db
+JWT_SECRET=replace_with_long_random_secret
+CORS_ORIGIN=*
+```
+
+### 6) Install dependencies and run
+
+```bash
+npm install
+npm start
+```
+
+### 7) Verify service is running
+
+```bash
+curl http://localhost:3000/api/version
+```
+
+Expected output includes the app version as JSON.
+
+### 8) (Optional) Run with PM2 for persistence
+
+```bash
+sudo npm install -g pm2
+pm2 start server.js --name firetech-chat
+pm2 save
+pm2 startup
 ```
 
 ###  Quick HTTPS Setup for LAN Access (Windows)
@@ -401,6 +473,15 @@ This project is open source and available for personal and commercial use.
 ##  Developer
 
 Created by Dhurgham Alsaadi using modern web technologies.
+
+##  GenAI Usage Disclosure
+
+GenAI assistance was used for selected coding tasks. In-code disclosure comments are included in:
+- `server.js`
+- `client.js`
+- `index.html`
+
+Prompt summaries used are documented in those file comments as required.
 
 ---
 
