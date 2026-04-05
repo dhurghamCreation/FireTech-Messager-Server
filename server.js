@@ -126,6 +126,34 @@ const sequelize = new Sequelize(resolvedConnectionString, {
   dialectOptions: isLocalConnection ? {} : { ssl: { require: true, rejectUnauthorized: false } }
 });
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function syncDatabaseWithRetry(maxAttempts = 8) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await sequelize.authenticate();
+      await sequelize.sync({ alter: true });
+      return;
+    } catch (err) {
+      const message = err && err.message ? err.message : String(err);
+      const retryable = /ECONNRESET|ECONNREFUSED|ETIMEDOUT|SequelizeConnection/i.test(message);
+      const shouldRetry = retryable && attempt < maxAttempts;
+
+      console.error(`Database connect/sync attempt ${attempt}/${maxAttempts} failed:`, err);
+
+      if (!shouldRetry) {
+        throw err;
+      }
+
+      const delayMs = Math.min(30000, 2000 * attempt);
+      console.log(`Retrying database connection in ${delayMs}ms...`);
+      await sleep(delayMs);
+    }
+  }
+}
+
 
 
 const User = sequelize.define('User', {
@@ -1851,7 +1879,7 @@ async function ensureShopItemsAvailable() {
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-sequelize.sync({ alter: true }).then(async () => {
+syncDatabaseWithRetry().then(async () => {
   await migrateMediaTypeEnum();
   await seedShopItems();
   server.listen(PORT, HOST, () => {
@@ -1877,7 +1905,7 @@ sequelize.sync({ alter: true }).then(async () => {
     `);
   });
 }).catch(err => {
-  console.error('Database sync error:', err);
+  console.error('Database startup error:', err);
   process.exit(1);
 });
   
