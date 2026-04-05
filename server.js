@@ -1,9 +1,4 @@
 const express = require('express');
-// GenAI disclosure: Parts of this backend were developed/refined with GenAI assistance.
-// Main prompts used:
-// 1) "Build a Node.js + Express + Socket.IO chat backend with JWT auth, profile APIs, friends, shop items, and PostgreSQL models using Sequelize."
-// 2) "Add Render deployment compatibility: dynamic PORT, production DATABASE_URL checks, and secure SSL options for managed Postgres."
-// 3) "Improve reliability by retrying database connection/sync on transient ECONNRESET/ECONNREFUSED startup failures."
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
