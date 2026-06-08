@@ -1,9 +1,4 @@
 let socket;
-// GenAI disclosure: Parts of this frontend logic were generated/improved with GenAI assistance.
-// Main prompts used:
-// 1) "Create a Discord-like real-time chat frontend with Socket.IO, auth flow, channel list, and responsive UI behavior."
-// 2) "Add profile, friends, and shop modal interactions with clean state updates and error handling."
-// 3) "Add internationalized UI dictionaries and live language switching for common labels and settings."
 let currentUser = null;
 let currentToken = null;
 
