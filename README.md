@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔥 FireTech Messager
+#  FireTech Messager
 
 **A real-time, Discord-style chat application with communities, groups, direct messages, video calls, a shop economy, and a built-in security bot.**
 
@@ -13,85 +13,85 @@
 
 ---
 
-## 📖 Table of Contents
+##  Table of Contents
 
-- [✨ Features](#-features)
-- [🛠️ Tech Stack](#️-tech-stack)
-- [🚀 Quick Start (Run Locally)](#-quick-start-run-locally)
-- [🌐 How Others Connect to Your Server](#-how-others-connect-to-your-server)
+- [ Features](#-features)
+- [ Tech Stack](#️-tech-stack)
+- [ Quick Start (Run Locally)](#-quick-start-run-locally)
+- [ How Others Connect to Your Server](#-how-others-connect-to-your-server)
   - [Option A: Same Wi-Fi / LAN Network](#option-a-same-wi-fi--lan-network)
   - [Option B: Over the Internet (Port Forwarding)](#option-b-over-the-internet-port-forwarding)
   - [Option C: Tunnel Services (ngrok / Cloudflare)](#option-c-tunnel-services-ngrok--cloudflare)
   - [Option D: Deploy to the Cloud (Recommended)](#option-d-deploy-to-the-cloud-recommended)
-- [📱 Mobile Access](#-mobile-access)
-- [🔐 HTTPS Setup for LAN](#-https-setup-for-lan)
-- [⚙️ Configuration (.env)](#️-configuration-env)
-- [🗄️ Database Setup](#️-database-setup)
-- [📡 API Endpoints](#-api-endpoints)
-- [🔌 Socket.IO Events](#-socketio-events)
-- [🤖 FireTech Bot Commands](#-firetech-bot-commands)
-- [🌍 Multi-Language Support](#-multi-language-support)
-- [🐳 Docker Deployment](#-docker-deployment)
-- [☁️ Cloud Deployment Guides](#️-cloud-deployment-guides)
-- [🛠️ Troubleshooting](#️-troubleshooting)
-- [📁 Project Structure](#-project-structure)
-- [📜 License](#-license)
+- [ Mobile Access](#-mobile-access)
+- [ HTTPS Setup for LAN](#-https-setup-for-lan)
+- [ Configuration (.env)](#️-configuration-env)
+- [ Database Setup](#️-database-setup)
+- [ API Endpoints](#-api-endpoints)
+- [ Socket.IO Events](#-socketio-events)
+- [ FireTech Bot Commands](#-firetech-bot-commands)
+- [ Multi-Language Support](#-multi-language-support)
+- [ Docker Deployment](#-docker-deployment)
+- [ Cloud Deployment Guides](#️-cloud-deployment-guides)
+- [ Troubleshooting](#️-troubleshooting)
+- [ Project Structure](#-project-structure)
+- [ License](#-license)
 
 ---
 
-## ✨ Features
+##  Features
 
-### 👤 User Management
-- ✅ Register & login with email/password (JWT authentication)
-- ✅ Editable profiles with bio, avatar, and phone number
-- ✅ Online / Offline / Away status tracking
-- ✅ Password reset
+###  User Management
+-  Register & login with email/password (JWT authentication)
+-  Editable profiles with bio, avatar, and phone number
+-  Online / Offline / Away status tracking
+-  Password reset
 
-### 💬 Real-Time Messaging
-- ✅ Instant messaging with **Socket.IO**
-- ✅ **Communities** (public rooms) & **Groups** (private rooms)
-- ✅ **Direct Messages (DMs)** between friends
-- ✅ Typing indicators
-- ✅ Media sharing — images, videos, emoji, stickers, GIFs, voice notes
-- ✅ Message history persisted in PostgreSQL
-- ✅ Room roles: **Owner / Admin / Member**
-- ✅ Rename rooms, change icons & banners
+###  Real-Time Messaging
+-  Instant messaging with **Socket.IO**
+-  **Communities** (public rooms) & **Groups** (private rooms)
+-  **Direct Messages (DMs)** between friends
+-  Typing indicators
+-  Media sharing — images, videos, emoji, stickers, GIFs, voice notes
+-  Message history persisted in PostgreSQL
+-  Room roles: **Owner / Admin / Member**
+-  Rename rooms, change icons & banners
 
-### 👥 Social Features
-- ✅ Friends list & friend requests (accept / reject)
-- ✅ Online member lists with avatars
-- ✅ Real-time presence updates
+###  Social Features
+-  Friends list & friend requests (accept / reject)
+-  Online member lists with avatars
+-  Real-time presence updates
 
-### 🎥 Video Calls
-- ✅ WebRTC-based video calls between users
-- ✅ Incoming call notifications, accept / reject / end
-- ✅ STUN/TURN server support for NAT traversal
+###  Video Calls
+-  WebRTC-based video calls between users
+-  Incoming call notifications, accept / reject / end
+-  STUN/TURN server support for NAT traversal
 
-### 🏪 Shop & Economy
-- ✅ Coin currency system
-- ✅ Premium shop with purchasable items (badges, themes, nameplates, emoji packs, avatar rings)
-- ✅ User inventory & instant item application
+###  Shop & Economy
+-  Coin currency system
+-  Premium shop with purchasable items (badges, themes, nameplates, emoji packs, avatar rings)
+-  User inventory & instant item application
 
-### 🎮 Games & Challenges
-- ✅ Trivia, Speed Typing, Memory, Math Blitz, Riddles, Reaction Speed, Word Scramble
-- ✅ Earn coins by completing challenges
+###  Games & Challenges
+-  Trivia, Speed Typing, Memory, Math Blitz, Riddles, Reaction Speed, Word Scramble
+-  Earn coins by completing challenges
 
-### 🤖 FireTech Security Bot
-- ✅ Built-in bot that answers security questions
-- ✅ Commands: `help`, `security`, `encryption`, `network`, `password`, `twofa`, `phishing`, `malware`, `vpn`
+###  FireTech Security Bot
+-  Built-in bot that answers security questions
+-  Commands: `help`, `security`, `encryption`, `network`, `password`, `twofa`, `phishing`, `malware`, `vpn`
 
-### 🌍 Internationalization
-- ✅ **12 languages**: English, Español, Français, Deutsch, 日本語, Português, العربية, 中文, Русский, 한국어, Türkçe, Italiano
+###  Internationalization
+-  **12 languages**: English, Español, Français, Deutsch, 日本語, Português, العربية, 中文, Русский, 한국어, Türkçe, Italiano
 
-### 🎨 UI/UX
-- ✅ Discord-inspired dark theme (with light mode)
-- ✅ Fully responsive — desktop, tablet, and mobile
-- ✅ Custom accent colors & compact mode
-- ✅ Desktop notifications & message sounds
+###  UI/UX
+-  Discord-inspired dark theme (with light mode)
+-  Fully responsive — desktop, tablet, and mobile
+-  Custom accent colors & compact mode
+-  Desktop notifications & message sounds
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -105,7 +105,7 @@
 
 ---
 
-## 🚀 Quick Start (Run Locally)
+##  Quick Start (Run Locally)
 
 ### Prerequisites
 
@@ -160,7 +160,7 @@ SSL_KEY_PATH=
 SSL_CERT_PATH=
 ```
 
-> 💡 **No local PostgreSQL?** Use a free cloud database:
+>  **No local PostgreSQL?** Use a free cloud database:
 > - **[Neon](https://neon.tech)** — free PostgreSQL with a connection string like `postgresql://user:pass@ep-xxx.aws.neon.tech/db?sslmode=require`
 > - **[Supabase](https://supabase.com)** — free PostgreSQL
 > - **[Railway](https://railway.app)** — free tier PostgreSQL
@@ -196,7 +196,7 @@ You should see the FireTech login screen. 🎉
 
 ---
 
-## 🌐 How Others Connect to Your Server
+##  How Others Connect to Your Server
 
 This is the **most important part**. There are **4 ways** people can connect to your server. Choose the one that fits your situation.
 
@@ -246,9 +246,9 @@ Give your friends this URL (replace `192.168.1.50` with **your** IP):
 http://192.168.1.50:7860
 ```
 
-They open it in any browser on the **same Wi-Fi** and they're connected! 🎉
+They open it in any browser on the **same Wi-Fi** and they're connected! 
 
-> ⚠️ **Important:** Everyone must be on the **same network** (same router/Wi-Fi). This will **not** work over the internet.
+>  **Important:** Everyone must be on the **same network** (same router/Wi-Fi). This will **not** work over the internet.
 
 ---
 
@@ -256,7 +256,7 @@ They open it in any browser on the **same Wi-Fi** and they're connected! 🎉
 
 **Best for:** When you want people **outside** your network to connect directly to your PC.
 
-> ⚠️ **Security Warning:** Opening a port to the internet exposes your machine. Only do this on a trusted network, and change the `JWT_SECRET` to a strong value first.
+>  **Security Warning:** Opening a port to the internet exposes your machine. Only do this on a trusted network, and change the `JWT_SECRET` to a strong value first.
 
 #### 1. Find Your Public IP
 
@@ -284,7 +284,7 @@ http://YOUR_PUBLIC_IP:7860
 
 Anyone on the internet can now connect to your server.
 
-> 💡 **Tip:** Your public IP may change. Use a **Dynamic DNS** service (like [No-IP](https://noip.com) or [DuckDNS](https://duckdns.org)) to get a permanent hostname like `yourname.duckdns.org`.
+>  **Tip:** Your public IP may change. Use a **Dynamic DNS** service (like [No-IP](https://noip.com) or [DuckDNS](https://duckdns.org)) to get a permanent hostname like `yourname.duckdns.org`.
 
 ---
 
@@ -369,7 +369,7 @@ pinned: false
 
 ---
 
-## 📱 Mobile Access
+##  Mobile Access
 
 The app is fully responsive and works on phones and tablets.
 
@@ -392,11 +392,11 @@ The repo includes `mobile-connect.ps1` which:
 
 Then open `https://YOUR_WIFI_IP:3001` on your phone.
 
-> ⚠️ You'll see a **certificate warning** on your phone (self-signed cert). Tap **Advanced → Proceed** to continue.
+>  You'll see a **certificate warning** on your phone (self-signed cert). Tap **Advanced → Proceed** to continue.
 
 ---
 
-## 🔐 HTTPS Setup for LAN
+##  HTTPS Setup for LAN
 
 For secure connections on your local network, use the included HTTPS setup script:
 
@@ -416,7 +416,7 @@ Access:
 
 ---
 
-## ⚙️ Configuration (.env)
+##  Configuration (.env)
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -438,7 +438,7 @@ Access:
 
 ---
 
-## 🗄️ Database Setup
+##  Database Setup
 
 The app uses **PostgreSQL** with the **Sequelize** ORM. Tables are created automatically on first run.
 
@@ -462,11 +462,11 @@ The app uses **PostgreSQL** with the **Sequelize** ORM. Tables are created autom
 
 Just paste your connection string into `DATABASE_URL`.
 
-> 💡 The server auto-creates all tables (`User`, `Channel`, `Message`, `ShopItem`, `Inventory`, `FriendRequest`, `DirectMessage`) and seeds default shop items on first run.
+>  The server auto-creates all tables (`User`, `Channel`, `Message`, `ShopItem`, `Inventory`, `FriendRequest`, `DirectMessage`) and seeds default shop items on first run.
 
 ---
 
-## 📡 API Endpoints
+##  API Endpoints
 
 ### Authentication
 | Method | Endpoint | Description |
@@ -514,7 +514,7 @@ Just paste your connection string into `DATABASE_URL`.
 
 ---
 
-## 🔌 Socket.IO Events
+##  Socket.IO Events
 
 ### Client → Server
 | Event | Description |
@@ -558,9 +558,9 @@ Just paste your connection string into `DATABASE_URL`.
 
 ---
 
-## 🤖 FireTech Bot Commands
+##  FireTech Bot Commands
 
-DM the **⚡ FireTech Bot** or mention it in a room with:
+DM the ** FireTech Bot** or mention it in a room with:
 
 | Command | Response |
 |---------|----------|
@@ -577,7 +577,7 @@ DM the **⚡ FireTech Bot** or mention it in a room with:
 
 ---
 
-## 🌍 Multi-Language Support
+##  Multi-Language Support
 
 The app supports **12 languages**, switchable in **Settings → Language**:
 
@@ -585,7 +585,7 @@ The app supports **12 languages**, switchable in **Settings → Language**:
 
 ---
 
-## 🐳 Docker Deployment
+##  Docker Deployment
 
 A `Dockerfile` is included:
 
@@ -608,7 +608,7 @@ docker run -p 7860:7860 --env-file .env firetech-messager
 
 ---
 
-## ☁️ Cloud Deployment Guides
+##  Cloud Deployment Guides
 
 ### Render
 - `render.yaml` is included — Render auto-detects it
@@ -627,78 +627,78 @@ docker run -p 7860:7860 --env-file .env firetech-messager
 
 ---
 
-## 🛠️ Troubleshooting
+##  Troubleshooting
 
-### ❌ "Cannot connect to database"
+###  "Cannot connect to database"
 - Make sure PostgreSQL is running
 - Check `DATABASE_URL` in `.env`
 - For cloud DBs, ensure the connection string includes `sslmode=require`
 
-### ❌ "Port already in use"
+###  "Port already in use"
 - Change `PORT` in `.env`
 - Or kill the process:
   - **Windows:** `taskkill /F /IM node.exe`
   - **macOS/Linux:** `lsof -ti:7860 | xargs kill -9`
 
-### ❌ Friends can't connect to my LAN IP
+###  Friends can't connect to my LAN IP
 - Make sure they're on the **same Wi-Fi**
 - Check your firewall allows port `7860` (run `add-firewall-rule.ps1`)
 - Verify your IP with `ipconfig` — don't use `localhost` or `127.0.0.1`
 
-### ❌ "Socket.IO connection failed"
+###  "Socket.IO connection failed"
 - Check the server is running
 - Verify the URL is correct (use your LAN IP, not localhost, for remote users)
 - Check `CORS_ORIGIN` in `.env` (use `*` for open access)
 
-### ❌ Files not uploading
+###  Files not uploading
 - Max file size is 50MB
 - Supported: images, videos, emoji, stickers, GIFs, voice notes
 - Clear browser cache and retry
 
-### ❌ Certificate warning on mobile
+###  Certificate warning on mobile
 - This is normal with self-signed certs
 - Tap **Advanced → Proceed** to continue
 
-### ❌ Video calls not working
+###  Video calls not working
 - Both users must be online
 - For calls across different networks, configure `TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL` in `.env`
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 FireTech-Messager-Server/
-├── 📄 server.js              # Backend: Express + Socket.IO + Sequelize
-├── 📄 client.js              # Frontend: all UI logic (8,700+ lines)
-├── 📄 index.html             # Frontend: HTML/CSS (4,000+ lines)
-├── 📄 package.json           # Dependencies & scripts
-├── 📄 .env.example           # Example environment config
-├── 📄 init-db.js             # Database initializer
-├── 📄 Dockerfile             # Docker container config
-├── 📄 render.yaml            # Render deployment config
-├── 📄 railway.json           # Railway deployment config
-├── 📄 vercel.json            # Vercel deployment config
-├── 📄 Caddyfile              # Caddy reverse-proxy config
-├── 📄 setup-https.ps1        # HTTPS LAN setup (Windows)
-├── 📄 mobile-connect.ps1     # Mobile connection setup (Windows)
-├── 📄 add-firewall-rule.ps1  # Firewall helper (Windows)
-├── 📄 Deploy-FireTech.ps1    # Full deployment script (Windows)
-├── 📄 deploy.ps1             # Deployment helper (Windows)
-├── 📄 QUICKSTART.sh          # Quick start (Linux/macOS)
-├── 📄 GETTING-STARTED.md     # Step-by-step guide
-├── 📄 SETUP-GUIDE.md         # Detailed setup guide
-├── 📄 FEATURES.md            # Feature documentation
-├── 📄 CHANGELOG-v2.2.5.md    # Changelog
-├── 📄 LICENSE                # MIT License
-├── 📁 images/                # App images & logo
-├── 📁 certs/                 # Generated SSL certificates
-└── 📁 node_modules/          # Dependencies (installed)
+├──  server.js              # Backend: Express + Socket.IO + Sequelize
+├──  client.js              # Frontend: all UI logic (8,700+ lines)
+├──  index.html             # Frontend: HTML/CSS (4,000+ lines)
+├──  package.json           # Dependencies & scripts
+├──  .env.example           # Example environment config
+├──  init-db.js             # Database initializer
+├──  Dockerfile             # Docker container config
+├──  render.yaml            # Render deployment config
+├──  railway.json           # Railway deployment config
+├──  vercel.json            # Vercel deployment config
+├──  Caddyfile              # Caddy reverse-proxy config
+├──  setup-https.ps1        # HTTPS LAN setup (Windows)
+├──  mobile-connect.ps1     # Mobile connection setup (Windows)
+├──  add-firewall-rule.ps1  # Firewall helper (Windows)
+├──  Deploy-FireTech.ps1    # Full deployment script (Windows)
+├──  deploy.ps1             # Deployment helper (Windows)
+├──  QUICKSTART.sh          # Quick start (Linux/macOS)
+├──  GETTING-STARTED.md     # Step-by-step guide
+├──  SETUP-GUIDE.md         # Detailed setup guide
+├──  FEATURES.md            # Feature documentation
+├──  CHANGELOG-v2.2.5.md    # Changelog
+├──  LICENSE                # MIT License
+├──  images/                # App images & logo
+├──  certs/                 # Generated SSL certificates
+└──  node_modules/          # Dependencies (installed)
 ```
 
 ---
 
-## 📜 License
+##  License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
@@ -706,9 +706,9 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 <div align="center">
 
-**Made with ❤️ using Node.js, Express, Socket.IO, and PostgreSQL**
+**Made using Node.js, Express, Socket.IO, and PostgreSQL**
 
-⭐ Star this repo if you find it useful!
+Star this repo if you find it useful!
 
 </div>
 </content>
