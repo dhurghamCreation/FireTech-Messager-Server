@@ -706,7 +706,7 @@ This project is licensed under the **Apache License** — see the [LICENSE](LICE
 
 <div align="center">
 
-**Made using Node.js, Express, Socket.IO, and PostgreSQL**
+**Made by Dhurgham Alsaadiusing Node.js, Express, Socket.IO, and PostgreSQL**
 
 Star this repo if you find it useful!
 
